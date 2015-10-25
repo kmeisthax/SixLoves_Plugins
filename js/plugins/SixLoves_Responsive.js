@@ -190,17 +190,24 @@
     
     root.Scene_Title.prototype.centerSprite = (function (old_impl) {
         return function (sprite) {
-            var fillingScale = Math.max(root.Graphics.boxWidth / sprite.bitmap.width,
-                                        root.Graphics.boxHeight / sprite.bitmap.height);
+            var fillingScale;
             
-            console.log(fillingScale);
-            console.log(sprite.bitmap.baseTexture.width);
-            console.log(sprite.bitmap.baseTexture.height);
+            //Awful hack because I can't figure out how to get Sprite/Bitmap to spit out
+            //their unscaled sizes
+            if (sprite.SCENE_TITLE__firstW === undefined) {
+                sprite.SCENE_TITLE__firstW = sprite.bitmap.width;
+            }
+
+            if (sprite.SCENE_TITLE__firstH === undefined) {
+                sprite.SCENE_TITLE__firstH = sprite.bitmap.height;
+            }
             
-            console.log(sprite);
+            fillingScale = Math.max(root.Graphics.boxWidth / sprite.SCENE_TITLE__firstW,
+                                    root.Graphics.boxHeight / sprite.SCENE_TITLE__firstH);
             
             sprite.width = root.Graphics.boxWidth;
             sprite.height = root.Graphics.boxHeight;
+            sprite.scale = fillingScale;
             
             old_impl(sprite);
         };
