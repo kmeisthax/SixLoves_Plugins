@@ -2,7 +2,7 @@
 
 /*:
  * @author David Wendt (fantranslation.org)
- * @plugindesc Makes your game responsive.
+ * @plugindesc Makes your game responsive. v0.1.0
  * 
  * @param ArtScale
  * @desc The intended scale of your art assets. (RPG Maker MV default: 1.5)
@@ -63,7 +63,9 @@
  * scenes and windows will be created. Additional scenes and windows in other
  * plugins or your own code should have layout methods created for them if the
  * defaults are unsuitable. The default implementations will use existing layout
- * properties where available.
+ * properties where available. Developers of custom Window or Scene classes
+ * should take a look at what this plugin does to ensure nothing breaks when it
+ * is enabled.
  */
 
 (function (root) {
@@ -106,6 +108,8 @@
         
         root.Graphics.width = cssWidth * finalScale;
         root.Graphics.height = cssHeight * finalScale;
+        root.Graphics.boxWidth = cssWidth * finalScale;
+        root.Graphics.boxHeight = cssHeight * finalScale;
         root.Graphics.scale = 1 / finalScale;
         
         if (root.SceneManager._scene) {
@@ -148,6 +152,8 @@
         }
         
         this._windowLayer.move(x, y, width, height);
+        this.width = width;
+        this.height = height;
         
         layoutAll(this.children);
     };
@@ -160,10 +166,24 @@
         layoutAll(this.children);
     }
     
+    /* Same for sprites, too.
+     */
+    root.Sprite.prototype.layout = function () {
+        layoutAll(this.children);
+    }
+
     /* Add the layout method to the Window implementation.
      * 
-     * This method relies on the existence of windowWidth and windowHeight
-     * methods, which only exist on certain Window_Base subclasses.
+     * This method relies on the existence of methods which comprise the way
+     * that Window layout is usually done for non-fixed windows:
+     *
+     *  - windowWidth: Returns the desired width of the window.
+     *  - windowHeight: Returns the desired height of the window.
+     *  - updatePlacement: Sets the window position.
+     *
+     * If your Window class lays itself out differently, but is not laid out by
+     * the parent scene, please override .layout with an appropriate
+     * implementation.
      */
     root.Window.prototype.layout = function () {
         if (this.windowWidth && this.windowHeight) {
@@ -171,6 +191,19 @@
             this.height = this.windowHeight();
         }
         
+        if (this.updatePlacement) {
+            this.updatePlacement();
+        }
+
+        layoutAll(this.children);
+    }
+
+    /* Ensure screen-filling sprites actually, y'know, fill the screen.
+     */
+    root.ScreenSprite.prototype.layout = function () {
+        this.scale.x = Graphics.width;
+        this.scale.y = Graphics.height;
+
         layoutAll(this.children);
     }
     
@@ -192,6 +225,9 @@
         return function (sprite) {
             var fillingScale;
             
+            console.log(sprite.bitmap.width);
+            console.log(sprite.bitmap.height);
+
             //Awful hack because I can't figure out how to get Sprite/Bitmap to spit out
             //their unscaled sizes
             if (sprite.SCENE_TITLE__firstW === undefined) {
@@ -202,14 +238,55 @@
                 sprite.SCENE_TITLE__firstH = sprite.bitmap.height;
             }
             
-            fillingScale = Math.max(root.Graphics.boxWidth / sprite.SCENE_TITLE__firstW,
-                                    root.Graphics.boxHeight / sprite.SCENE_TITLE__firstH);
+            fillingScale = Math.max(root.Graphics.width / sprite.SCENE_TITLE__firstW,
+                                    root.Graphics.height / sprite.SCENE_TITLE__firstH);
             
-            sprite.width = root.Graphics.boxWidth;
-            sprite.height = root.Graphics.boxHeight;
-            sprite.scale = fillingScale;
+            sprite.scale.x = fillingScale;
+            sprite.scale.y = fillingScale;
             
             old_impl(sprite);
         };
     }(root.Scene_Title.prototype.centerSprite));
+
+    /* == SPECIAL-PURPOSE IMPLEMENTATIONS: MENU SCREEN == */
+
+    /* Reposition the Gold window when needed
+     */
+    root.Scene_Menu.prototype.layout = function () {
+        if (this._goldWindow !== undefined) {
+            this._goldWindow.y = root.Graphics.boxHeight - this._goldWindow.height;
+        }
+
+        root.Scene_MenuBase.prototype.layout.call(this);
+    }
+
+    /* == SPECIAL-PURPOSE IMPLEMENTATIONS: MAP SCREEN == */
+
+    /* Resize objects managed by the spriteset management code.
+     */
+    root.Spriteset_Base.prototype.layout = function () {
+        var width = Graphics.boxWidth,
+            height = Graphics.boxHeight,
+            x = (Graphics.width - width) / 2,
+            y = (Graphics.height - height) / 2;
+
+        this.setFrame(0, 0, Graphics.width, Graphics.height);
+        this._pictureContainer.setFrame(x, y, width, height);
+        this._baseSprite.setFrame(0, 0, width, height);
+
+        root.Sprite.prototype.layout.call(this);
+    }
+
+    /* Recreate the entire Map scene
+     *
+     * We do this instead of trying to properly size it's children because that
+     * approach caused... problems. The Spritesheet or Tilemap always seemed to
+     * be getting clipped on the edge you expanded from, for some reason.
+     */
+    root.Scene_Map.prototype.layout = function () {
+        this.removeChildren();
+        this.createDisplayObjects();
+
+        root.Scene_Base.prototype.layout.call(this);
+    }
 }(this));
