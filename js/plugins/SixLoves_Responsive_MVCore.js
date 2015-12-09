@@ -593,6 +593,11 @@ this.SixLoves_Responsive_MVCore = this.SixLoves_Responsive_MVCore || {};
 
         frameCount = force_frame_adaptive(frameCount, this.updateMain, this);
 
+        //We also have to slow time back down so other functions are unaffected
+        if (this.isFastForward()) {
+            frameCount /= 2;
+        }
+
         return frameCount;
     };
 
@@ -971,7 +976,7 @@ this.SixLoves_Responsive_MVCore = this.SixLoves_Responsive_MVCore || {};
         if (!this.isMoveRouteForcing()) {
             resCount = this.__SixLoves_Responsive__frameResidue + frameCount;
 
-            while (frameCount >= 1) {
+            while (resCount >= 1) {
                 this.updateSelfMovement();
                 resCount -= 1;
             }
