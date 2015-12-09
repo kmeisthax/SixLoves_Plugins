@@ -1,2 +1,5 @@
 *.js text
 *.json text
+*.html text
+*.css text
+*.txt text
