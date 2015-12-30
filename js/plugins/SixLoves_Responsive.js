@@ -371,10 +371,10 @@ this.SixLoves_Responsive = this.SixLoves_Responsive || {};
                                              cssHeight / maxHeight);
         }
 
-        root.Graphics.width = cssWidth * finalScale;
-        root.Graphics.height = cssHeight * finalScale;
-        root.Graphics.boxWidth = cssWidth * finalScale;
-        root.Graphics.boxHeight = cssHeight * finalScale;
+        root.Graphics.width = Math.round(cssWidth * finalScale);
+        root.Graphics.height = Math.round(cssHeight * finalScale);
+        root.Graphics.boxWidth = Math.round(cssWidth * finalScale);
+        root.Graphics.boxHeight = Math.round(cssHeight * finalScale);
         root.Graphics.scale = 1 / finalScale;
         
         nonResponsive = [];
