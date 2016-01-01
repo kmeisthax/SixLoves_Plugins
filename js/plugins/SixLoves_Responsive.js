@@ -502,7 +502,7 @@ this.SixLoves_Responsive = this.SixLoves_Responsive || {};
             old_impl.apply(this, childArgs);
 
             this._context.scale(drawingScale, drawingScale);
-            this.__SixLoves_Responsive__drawingScale = drawingScale;
+            this._baseTexture.resolution = drawingScale;
         }
     }(root.Bitmap.prototype.initialize));
 
@@ -518,59 +518,7 @@ this.SixLoves_Responsive = this.SixLoves_Responsive || {};
         this._canvas.height = height;
         this._baseTexture.width = width;
         this._baseTexture.height = height;
-    };
-
-    /* Aaand make sure we return text width in artscale units */
-    root.Bitmap.prototype.measureTextWidth = (function (old_impl) {
-        return function (text) {
-            return old_impl.apply(this, arguments);// / this.__SixLoves_Responsive__drawingScale;
-        }
-    }(root.Bitmap.prototype.measureTextWidth));
-
-    /* Aaand make sure any underlying sprites involved also understand that
-     * bitmaps can be a higher resolution than their target sprite. */
-    root.Sprite.prototype._refresh = function () {
-        var frameX = Math.floor(this._frame.x),
-            frameY = Math.floor(this._frame.y),
-            frameW = Math.floor(this._frame.width),
-            frameH = Math.floor(this._frame.height),
-            bitmapW = this._bitmap ? this._bitmap.width : 0,
-            bitmapH = this._bitmap ? this._bitmap.height : 0,
-            bitmapPRatio = this._bitmap ? this._bitmap.__SixLoves_Responsive__drawingScale : 1,
-            realX = frameX.clamp(0, bitmapW),
-            realY = frameY.clamp(0, bitmapH),
-            realW = (frameW - realX + frameX).clamp(0, bitmapW - realX),
-            realH = (frameH - realY + frameY).clamp(0, bitmapH - realY);
-
-        this.texture.baseTexture.resolution = bitmapPRatio;
-
-        this._realFrame.x = realX;
-        this._realFrame.y = realY;
-        this._realFrame.width = realW;
-        this._realFrame.height = realH;
-        this._offset.x = realX - frameX;
-        this._offset.y = realY - frameY;
-
-        if (realW > 0 && realH > 0) {
-            if (this._needsTint()) {
-                this._createTinter(realW, realH);
-                this._executeTint(realX, realY, realW, realH);
-                this._tintTexture.dirty();
-                this.texture.baseTexture = this._tintTexture;
-                this.texture.setFrame(new Rectangle(0, 0, realW, realH));
-            } else {
-                if (this._bitmap) {
-                    this.texture.baseTexture = this._bitmap.baseTexture;
-                }
-                this.texture.setFrame(this._realFrame);
-            }
-        } else if (this._bitmap) {
-            this.texture.setFrame(Rectangle.emptyRectangle);
-        } else {
-            this.texture.trim = this._frame;
-            this.texture.setFrame(this._frame);
-            this.texture.trim = null;
-        }
+        this._baseTexture.resolution = drawingScale;
     };
 
     /* There's what I -think- is a bug in PIXI where setFrame
