@@ -259,6 +259,14 @@ this.SixLoves_Responsive = this.SixLoves_Responsive || {};
         return framesExecuted;
     }
 
+    /* Returns the number of physical pixels per ArtScale pixel.
+     *
+     * Exposed as SixLoves_Responsive.get_artscale_pixel_ratio
+     */
+    function get_artscale_pixel_ratio() {
+        return pixelScaleDiscrepancy;
+    }
+
     /* Code which adjusts the gameloop to run at the same physical speed
      * regardless of the rate at which the browser fires animation frames.
      */
@@ -385,13 +393,13 @@ this.SixLoves_Responsive = this.SixLoves_Responsive || {};
                                              cssHeight / maxHeight);
         }
 
+        pixelScaleDiscrepancy = displayScale / finalScale;
+
         root.Graphics.width = Math.round(cssWidth * finalScale);
         root.Graphics.height = Math.round(cssHeight * finalScale);
         root.Graphics.boxWidth = Math.round(cssWidth * finalScale);
         root.Graphics.boxHeight = Math.round(cssHeight * finalScale);
         root.Graphics.scale = 1 / finalScale;
-        
-        pixelScaleDiscrepancy = displayScale / finalScale;
 
         nonResponsive = [];
 
@@ -581,8 +589,51 @@ this.SixLoves_Responsive = this.SixLoves_Responsive || {};
 
     };
 
+    /* Finally, we have to configure our rendering canvas to be the physical
+     * resolution of the viewport, and not artscale units
+     *
+     * Also because high-DPI never really crossed canvas's mind we have to add
+     * some CSS to force the browser to shrink the canvas back down (or up, if
+     * ArtScale is larger than the actual pixel ratio)
+     */
+    root.Graphics._updateCanvas = function() {
+        var psd = pixelScaleDiscrepancy ? pixelScaleDiscrepancy : 1;
+
+        this._canvas.width = this._width * psd;
+        this._canvas.height = this._height * psd;
+        this._canvas.style.zIndex = 1;
+        this._canvas.style.maxWidth = "100%";
+        this._canvas.style.maxHeight = "100%";
+        this._canvas.style.minWidth = "100%";
+        this._canvas.style.minHeight = "100%";
+
+        //this._centerElement(this._canvas);
+        //Our lies are incompatible with this API
+
+        this._canvas.style.position = 'absolute';
+        this._canvas.style.margin = 'auto';
+        this._canvas.style.top = 0;
+        this._canvas.style.left = 0;
+        this._canvas.style.right = 0;
+        this._canvas.style.bottom = 0;
+    };
+
+    /* Tell the PIXI renderer about the pixel scale discrepancy so that it uses
+     * the extra resolution we've given/taken to/from it
+     */
+    root.Graphics._updateRenderer = function() {
+        var psd = pixelScaleDiscrepancy ? pixelScaleDiscrepancy : 1;
+
+        if (this._renderer) {
+            this._renderer.resolution = psd;
+            this._renderer.renderSession.resolution = psd;
+            this._renderer.resize(this._width, this._height);
+        }
+    };
+
     module.layout_all = layout_all;
     module.force_frame_adaptive = force_frame_adaptive;
+    module.get_artscale_pixel_ratio = get_artscale_pixel_ratio;
     
     module.updateFrameCap = updateFrameCap;
     
