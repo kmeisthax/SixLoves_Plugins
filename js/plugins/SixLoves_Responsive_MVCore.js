@@ -1,4 +1,5 @@
 /*jslint nomen:true*/
+/*global console*/
 
 /*:
  * @author David Wendt (fantranslation.org)
@@ -185,7 +186,7 @@ this.SixLoves_Responsive_MVCore = this.SixLoves_Responsive_MVCore || {};
             frameCount = 1;
         }
 
-        this.children.forEach(function(child) {
+        this.children.forEach(function (child) {
             if (child.update) {
                 frameCount = force_frame_adaptive(frameCount, child.update, child);
             }
@@ -203,7 +204,7 @@ this.SixLoves_Responsive_MVCore = this.SixLoves_Responsive_MVCore || {};
 
         this.animationCount += frameCount;
 
-        this.children.forEach(function(child) {
+        this.children.forEach(function (child) {
             if (child.update) {
                 frameCount = force_frame_adaptive(frameCount, child.update, child);
             }
@@ -901,7 +902,7 @@ this.SixLoves_Responsive_MVCore = this.SixLoves_Responsive_MVCore || {};
 
     root.Game_Character.prototype.updateStop.frame_adaptive = true;
 
-    root.Game_Character.prototype.updateRoutineMove = function(frameCount) {
+    root.Game_Character.prototype.updateRoutineMove = function (frameCount) {
         if (frameCount === undefined) {
             frameCount = 1;
         }
@@ -955,7 +956,7 @@ this.SixLoves_Responsive_MVCore = this.SixLoves_Responsive_MVCore || {};
 
         frameCount = force_frame_adaptive(frameCount, root.Game_Character.prototype.update, this);
         this.checkEventTriggerAuto();
-        this.updateParallel();
+        frameCount = force_frame_adaptive(frameCount, this.updateParallel, this);
 
         return frameCount;
     };
@@ -974,6 +975,10 @@ this.SixLoves_Responsive_MVCore = this.SixLoves_Responsive_MVCore || {};
         }
         frameCount = force_frame_adaptive(frameCount, root.Game_Character.prototype.updateStop, this);
         if (!this.isMoveRouteForcing()) {
+            if (this.__SixLoves_Responsive__frameResidue === undefined) {
+                this.__SixLoves_Responsive__frameResidue = 0;
+            }
+
             resCount = this.__SixLoves_Responsive__frameResidue + frameCount;
 
             while (resCount >= 1) {
@@ -988,6 +993,23 @@ this.SixLoves_Responsive_MVCore = this.SixLoves_Responsive_MVCore || {};
     };
 
     root.Game_Event.prototype.updateStop.frame_adaptive = true;
+
+    root.Game_Event.prototype.updateParallel = function (frameCount) {
+        if (frameCount === undefined) {
+            frameCount = 1;
+        }
+
+        if (this._interpreter) {
+            if (!this._interpreter.isRunning()) {
+                this._interpreter.setup(this.list(), this._eventId);
+            }
+            frameCount = force_frame_adaptive(frameCount, this._interpreter.update, this._interpreter);
+        }
+
+        return frameCount;
+    };
+
+    root.Game_Event.prototype.updateParallel.frame_adaptive = true;
 
     root.Game_Vehicle.prototype.update = function (frameCount) {
         if (frameCount === undefined) {
@@ -1049,7 +1071,7 @@ this.SixLoves_Responsive_MVCore = this.SixLoves_Responsive_MVCore || {};
                 this._gathering = false;
             }
         }
-        this.forEach(function(follower) {
+        this.forEach(function (follower) {
             frameCount = force_frame_adaptive(frameCount, follower.update, follower);
         }, this);
 
@@ -1063,14 +1085,16 @@ this.SixLoves_Responsive_MVCore = this.SixLoves_Responsive_MVCore || {};
             frameCount = 1;
         }
 
-        frameCount = force_frame_adaptive(frameCount, Game_Character.prototype.update, this);
-        this.setMoveSpeed($gamePlayer.realMoveSpeed());
-        this.setOpacity($gamePlayer.opacity());
-        this.setBlendMode($gamePlayer.blendMode());
-        this.setWalkAnime($gamePlayer.hasWalkAnime());
-        this.setStepAnime($gamePlayer.hasStepAnime());
-        this.setDirectionFix($gamePlayer.isDirectionFixed());
-        this.setTransparent($gamePlayer.isTransparent());
+        frameCount = force_frame_adaptive(frameCount, root.Game_Character.prototype.update, this);
+
+        //TODO: Any of this need force_frame_adaptive or no?
+        this.setMoveSpeed(root.$gamePlayer.realMoveSpeed());
+        this.setOpacity(root.$gamePlayer.opacity());
+        this.setBlendMode(root.$gamePlayer.blendMode());
+        this.setWalkAnime(root.$gamePlayer.hasWalkAnime());
+        this.setStepAnime(root.$gamePlayer.hasStepAnime());
+        this.setDirectionFix(root.$gamePlayer.isDirectionFixed());
+        this.setTransparent(root.$gamePlayer.isTransparent());
 
         return frameCount;
     };
@@ -1174,6 +1198,8 @@ this.SixLoves_Responsive_MVCore = this.SixLoves_Responsive_MVCore || {};
             var d = this._flashDuration;
             this._flashColor[3] *= (d - 1) / d;
             this._flashDuration = Math.max(this._flashDuration - frameCount, 0);
+        } else {
+            this._flashColor[3] = 0;
         }
 
         return frameCount;
@@ -1293,7 +1319,7 @@ this.SixLoves_Responsive_MVCore = this.SixLoves_Responsive_MVCore || {};
             this._removeSprite();
         }
 
-        this._sprites.forEach(function(sprite) {
+        this._sprites.forEach(function (sprite) {
             var spriteUpdater = this._updateSprite.bind(this, [sprite]);
             spriteUpdater.frame_adaptive = this._updateSprite.frame_adaptive;
 
@@ -1305,7 +1331,7 @@ this.SixLoves_Responsive_MVCore = this.SixLoves_Responsive_MVCore || {};
 
     root.Weather.prototype._updateAllSprites.frame_adaptive = true;
 
-    root.Weather.prototype._updateSprite = function(sprite) {
+    root.Weather.prototype._updateSprite = function (sprite, frameCount) {
         var boundChild;
 
         if (frameCount === undefined) {
@@ -1338,7 +1364,7 @@ this.SixLoves_Responsive_MVCore = this.SixLoves_Responsive_MVCore || {};
 
     root.Weather.prototype._updateSprite.frame_adaptive = true;
 
-    root.Weather.prototype._updateRainSprite = function(sprite, frameCount) {
+    root.Weather.prototype._updateRainSprite = function (sprite, frameCount) {
         if (frameCount === undefined) {
             frameCount = 1;
         }
@@ -1354,7 +1380,7 @@ this.SixLoves_Responsive_MVCore = this.SixLoves_Responsive_MVCore || {};
 
     root.Weather.prototype._updateRainSprite.frame_adaptive = true;
 
-    root.Weather.prototype._updateStormSprite = function(sprite, frameCount) {
+    root.Weather.prototype._updateStormSprite = function (sprite, frameCount) {
         if (frameCount === undefined) {
             frameCount = 1;
         }
@@ -1370,7 +1396,7 @@ this.SixLoves_Responsive_MVCore = this.SixLoves_Responsive_MVCore || {};
 
     root.Weather.prototype._updateStormSprite.frame_adaptive = true;
 
-    root.Weather.prototype._updateSnowSprite = function(sprite, frameCount) {
+    root.Weather.prototype._updateSnowSprite = function (sprite, frameCount) {
         if (frameCount === undefined) {
             frameCount = 1;
         }
