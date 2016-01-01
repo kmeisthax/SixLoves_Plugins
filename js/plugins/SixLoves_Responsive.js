@@ -186,6 +186,8 @@ this.SixLoves_Responsive = this.SixLoves_Responsive || {};
         maxHeight = Number(parameters.MaxHeight || 624),
         
         designFPS = Number(parameters.DesignFPS || 60),
+
+        /* Debug shit */
         debugFPS = (parameters.DebugFPS !== undefined &&
                     parameters.DebugFPS !== "undefined") ? Number(parameters.DebugFPS) : undefined,
         debugBreakOnNonAdaptive = (parameters.DebugBreakOnNonadaptive === undefined ||
@@ -199,7 +201,18 @@ this.SixLoves_Responsive = this.SixLoves_Responsive || {};
 
         /* Preceding implementations of patched code. */
         _SceneManager_initGraphics = root.SceneManager.initGraphics,
-        _Graphics_centerElement = root.Graphics._centerElement;
+        _Graphics_centerElement = root.Graphics._centerElement,
+
+        /* The additional zoom factor from ArtScale pixels to physical pixels.
+         * So, for example...
+         *
+         *     DPI scale            ArtScale            pixelScaleDiscrepancy
+         *     1x                   1x                  1x
+         *     1x                   1.5x                0.6666x
+         *     1.5x                 1.5x                1x
+         *     2x                   1.5x                1.3333x
+         */
+        pixelScaleDiscrepancy;
     
     if (debugFPS !== undefined) {
         console.warn("Debugging framerate is on. You should turn this off if you are not testing update logic.");
@@ -358,6 +371,7 @@ this.SixLoves_Responsive = this.SixLoves_Responsive || {};
      */
     function adapt_to_viewport() {
         var finalScale = artScale,
+            displayScale = window.devicePixelRatio || 1,
             cssWidth = window.innerWidth,
             cssHeight = window.innerHeight;
         
@@ -377,6 +391,8 @@ this.SixLoves_Responsive = this.SixLoves_Responsive || {};
         root.Graphics.boxHeight = Math.round(cssHeight * finalScale);
         root.Graphics.scale = 1 / finalScale;
         
+        pixelScaleDiscrepancy = displayScale / finalScale;
+
         nonResponsive = [];
 
         if (root.SceneManager._scene) {
@@ -418,6 +434,153 @@ this.SixLoves_Responsive = this.SixLoves_Responsive || {};
         }
     }
     
+    /* Adjust Window_Base to allocate window contents with a properly sized bitmap.
+     *
+     * This is the last piece in resolution-independence; windows will be able
+     * to draw content correctly...
+     */
+    root.Window_Base.prototype.createContents = function() {
+        this.contents = new Bitmap(this.contentsWidth(), this.contentsHeight(), pixelScaleDiscrepancy);
+        this.resetFontSettings();
+    };
+
+    /* ...after these patches to Bitmap which will reframe literally all window
+     * drawing operations in terms of virtual/CSS pixels instead of physical
+     * pixels.
+     */
+    root.Bitmap.prototype.initialize = (function (old_impl) {
+        return function (width, height, drawingScale) {
+            var childArgs = Array.prototype.concat.call(arguments);
+
+            if (drawingScale === undefined) {
+                drawingScale = 1;
+            } else {
+                //debugger;
+            }
+
+            childArgs[0] = Math.floor(width * drawingScale);
+            childArgs[1] = Math.floor(height * drawingScale);
+
+            old_impl.apply(this, childArgs);
+
+            this._context.scale(drawingScale, drawingScale);
+            this.__SixLoves_Responsive__drawingScale = drawingScale;
+        }
+    }(root.Bitmap.prototype.initialize));
+
+    /* Oh, and we also have to catch anyone resizing bitmaps, too. */
+    root.Bitmap.prototype.resize = function (width, height, drawingScale) {
+        if (drawingScale === undefined) {
+            drawingScale = 1;
+        }
+
+        width = Math.floor(Math.max(width || 0, 1) * drawingScale);
+        height = Math.floor(Math.max(height || 0, 1) * drawingScale);
+        this._canvas.width = width;
+        this._canvas.height = height;
+        this._baseTexture.width = width;
+        this._baseTexture.height = height;
+    };
+
+    /* Aaand make sure we return text width in artscale units */
+    root.Bitmap.prototype.measureTextWidth = (function (old_impl) {
+        return function (text) {
+            return old_impl.apply(this, arguments);// / this.__SixLoves_Responsive__drawingScale;
+        }
+    }(root.Bitmap.prototype.measureTextWidth));
+
+    /* Aaand make sure any underlying sprites involved also understand that
+     * bitmaps can be a higher resolution than their target sprite. */
+    root.Sprite.prototype._refresh = function () {
+        var frameX = Math.floor(this._frame.x),
+            frameY = Math.floor(this._frame.y),
+            frameW = Math.floor(this._frame.width),
+            frameH = Math.floor(this._frame.height),
+            bitmapW = this._bitmap ? this._bitmap.width : 0,
+            bitmapH = this._bitmap ? this._bitmap.height : 0,
+            bitmapPRatio = this._bitmap ? this._bitmap.__SixLoves_Responsive__drawingScale : 1,
+            realX = frameX.clamp(0, bitmapW),
+            realY = frameY.clamp(0, bitmapH),
+            realW = (frameW - realX + frameX).clamp(0, bitmapW - realX),
+            realH = (frameH - realY + frameY).clamp(0, bitmapH - realY);
+
+        this.texture.baseTexture.resolution = bitmapPRatio;
+
+        this._realFrame.x = realX;
+        this._realFrame.y = realY;
+        this._realFrame.width = realW;
+        this._realFrame.height = realH;
+        this._offset.x = realX - frameX;
+        this._offset.y = realY - frameY;
+
+        if (realW > 0 && realH > 0) {
+            if (this._needsTint()) {
+                this._createTinter(realW, realH);
+                this._executeTint(realX, realY, realW, realH);
+                this._tintTexture.dirty();
+                this.texture.baseTexture = this._tintTexture;
+                this.texture.setFrame(new Rectangle(0, 0, realW, realH));
+            } else {
+                if (this._bitmap) {
+                    this.texture.baseTexture = this._bitmap.baseTexture;
+                }
+                this.texture.setFrame(this._realFrame);
+            }
+        } else if (this._bitmap) {
+            this.texture.setFrame(Rectangle.emptyRectangle);
+        } else {
+            this.texture.trim = this._frame;
+            this.texture.setFrame(this._frame);
+            this.texture.trim = null;
+        }
+    };
+
+    /* There's what I -think- is a bug in PIXI where setFrame
+     * sets the texture crop without taking resolution into
+     * account, so let's update the crop ourselves.
+     *
+     * Unfortunately the 2.x versions of PIXI are no longer updated so this is
+     * just gonna be our little secret. Also, I'm fairly sure this is not what
+     * PIXI upstream would prefer we do but I stopped caring.
+     */
+    PIXI.Texture.prototype.setFrame = function(frame)
+    {
+        this.noFrame = false;
+
+        this.frame = frame;
+        this.width = frame.width;
+        this.height = frame.height;
+
+        this.crop.x = frame.x;
+        this.crop.y = frame.y;
+        this.crop.width = frame.width;
+        this.crop.height = frame.height;
+
+        if (!this.trim && (frame.x + frame.width > this.baseTexture.width || frame.y + frame.height > this.baseTexture.height))
+        {
+            throw new Error('Texture Error: frame does not fit inside the base Texture dimensions ' + this);
+        }
+
+        //It's only -after- that check that we can do this:
+        this.frame.width *= this.baseTexture.resolution;
+        this.frame.height *= this.baseTexture.resolution;
+        this.crop.width *= this.baseTexture.resolution;
+        this.crop.height *= this.baseTexture.resolution;
+
+        this.valid = frame && frame.width && frame.height && this.baseTexture.source && this.baseTexture.hasLoaded;
+
+        if (this.trim)
+        {
+            this.width = this.trim.width;
+            this.height = this.trim.height;
+            this.frame.width = this.trim.width;
+            this.frame.height = this.trim.height;
+        }
+
+        if (this.valid) this._updateUvs();
+
+    };
+
     module.layout_all = layout_all;
     module.force_frame_adaptive = force_frame_adaptive;
     
