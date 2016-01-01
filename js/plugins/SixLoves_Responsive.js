@@ -33,6 +33,10 @@
  * @desc Maximum number of updates to run per animation frame.
  * @default 4
  *
+ * @param EnableResolutionIndependence
+ * @desc Render the game at the resolution of your display & scale assets up.
+ * @default true
+ *
  * @param DebugFPS
  * @desc FPS that the game should run at, for debugging purposes.
  * @default undefined
@@ -75,13 +79,33 @@
  * RPG Maker MV and VX Ace viewports, respectively. You may wish to adjust them
  * based on your target platform. In that case, please keep in mind that the
  * units for these parameters are specified in virtual units, so if you increase
- * your ArtScale, the sizes specified here do not need to be increased.
+ * your ArtScale, the sizes specified here do not need to be increased. Or, if
+ * you reduce ArtScale (say if you liked MV's larger sprites), you don't need to
+ * change these either.
+ *
+ *      Please take caution when setting ArtScale as it increases or decreases
+ * the size of the whole game. Settings above 1.5 are highly discouraged unless
+ * you have already made the necessary code and design changes to increase the
+ * size of UI elements and text before using this plugin. Please do not make
+ * those changes, however, if you have not already, as we have a better approach
+ * involving true high-resolution support.
+ *
+ *      This plugin unlocks the high-resolution support built into PIXI.js, the
+ * 2D graphics library used by RPG Maker MV. What this means is that the actual
+ * viewport presented to the user will match the resolution of their device, and
+ * existing low-resolution assets will be scaled to the selected art asset size.
+ * The only practical effect of this, however, is that text will render at
+ * higher resolution when needed. An additional plugin is required to support
+ * high-resolution or vector art asset loading.
  * 
- *      Please note that this plugin does not currently adjust UI to account for
- * a higher or lower ArtScale. You must first provide all other parts of RPG
- * Maker high-resolution assets to increase the size of all content, and then
- * use ArtScale to shrink the content of the game back down to the same apparant
- * size.
+ *      (Note that "high resolution" does not mean "larger physical size" as RPG
+ * Maker tends to assume.)
+ *
+ *      In the event that the high-resolution support is causing a bug in your
+ * game, you may disable it by setting EnableResolutionIndependence to false,
+ * which will refrain from increasing the WebGL/canvas resolution. Note that
+ * this setting is independent from the ArtScale setting which is used to
+ * calculate viewport resolution.
  * 
  *      This plugin creates a new method for Scenes and Windows called layout.
  * This method is called to force the target object to adjust it's contents to
@@ -179,6 +203,7 @@ this.SixLoves_Responsive = this.SixLoves_Responsive || {};
     "use strict";
     
     var parameters = root.PluginManager.parameters('SixLoves_Responsive'),
+        enableResolutionIndependence = parameters.EnableResolutionIndependence === "false" ? false : true,
         artScale = Number(parameters.ArtScale || 1.5),
         minWidth = Number(parameters.MinWidth || 544),
         minHeight = Number(parameters.MinHeight || 416),
@@ -393,7 +418,12 @@ this.SixLoves_Responsive = this.SixLoves_Responsive || {};
                                              cssHeight / maxHeight);
         }
 
-        pixelScaleDiscrepancy = displayScale / finalScale;
+        //Allow turning off full DPI support
+        if (enableResolutionIndependence) {
+            pixelScaleDiscrepancy = displayScale / finalScale;
+        } else {
+            pixelScaleDiscrepancy = 1;
+        }
 
         root.Graphics.width = Math.round(cssWidth * finalScale);
         root.Graphics.height = Math.round(cssHeight * finalScale);
