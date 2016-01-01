@@ -11,8 +11,9 @@ this.SixLoves_TextSystem = this.SixLoves_TextSystem || {};
 (function (root, module) {
     "use strict";
 
-    //TODO: Ensure scrolling text has enough lines allocated to show everything
-    //TODO: Ensure window width calculation is correct
+    //TODO: Ensure window width calculation is correct - some windows might be
+    //assuming text would never extend wider than a particular point or
+    //something
 
     function cloneTextState(textState) {
         return {
