@@ -156,7 +156,60 @@ this.SixLoves_Responsive_MVCore = this.SixLoves_Responsive_MVCore || {};
     };
 
     root.WindowLayer.prototype.update.frame_adaptive = true;
+    
+    /* For some reason, WindowLayer renders everything to a second canvas if we
+     * use the Canvas2D APIs. This need to be patched to support .resolution as
+     * of v0.2.0
+     */
+    root.WindowLayer.prototype._renderCanvas = function (renderSession) {
+        if (!this.visible) {
+            return;
+        }
 
+        if (!this._tempCanvas) {
+            this._tempCanvas = document.createElement('canvas');
+        }
+
+        this._tempCanvas.width = root.Graphics.width * renderSession.resolution;
+        this._tempCanvas.height = root.Graphics.height * renderSession.resolution;
+
+        var i, j, child, realCanvasContext = renderSession.context,
+            context = this._tempCanvas.getContext('2d');
+
+        context.save();
+        context.clearRect(0, 0, root.Graphics.width * renderSession.resolution, root.Graphics.height * renderSession.resolution);
+        context.beginPath();
+        context.rect(this.x, this.y, this.width * renderSession.resolution, this.height * renderSession.resolution);
+        context.closePath();
+        context.clip();
+
+        renderSession.context = context;
+
+        for (i = 0; i < this.children.length; i += 1) {
+            child = this.children[i];
+            if (child._isWindow && child.visible && child.openness > 0) {
+                this._canvasClearWindowRect(renderSession, child);
+                context.save();
+                child._renderCanvas(renderSession);
+                context.restore();
+            }
+        }
+
+        context.restore();
+
+        renderSession.context = realCanvasContext;
+        renderSession.context.setTransform(1, 0, 0, 1, 0, 0);
+        renderSession.context.globalCompositeOperation = 'source-over';
+        renderSession.context.globalAlpha = 1;
+        renderSession.context.drawImage(this._tempCanvas, 0, 0);
+
+        for (j = 0; j < this.children.length; j += 1) {
+            if (!this.children[j]._isWindow) {
+                this.children[j]._renderCanvas(renderSession);
+            }
+        }
+    };
+    
     /* Same for sprites, too.
      */
     root.Sprite.prototype.layout = function () {
