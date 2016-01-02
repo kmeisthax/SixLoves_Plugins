@@ -434,15 +434,15 @@ this.SixLoves_Responsive = this.SixLoves_Responsive || {};
         nonResponsive = [];
 
         if (root.SceneManager._scene) {
-            if (root.SceneManager._scene.layout()) {
-                if (debugLogMessages) {
-                    console.warn("The current scene " + root.SceneManager._scene.constructor.name + " does not have a .layout method; the game will not render properly until the next scene transition.");
-                }
-            } else {
+            if (root.SceneManager._scene.layout) {
                 root.SceneManager._scene.layout();
 
                 if (nonResponsive.length > 0 && debugLogMessages) {
                     console.warn("Classes " + nonResponsive.join(", ") + " do not have a .layout method; some portions of the current scene may not render properly until the next scene transition.");
+                }
+            } else {
+                if (debugLogMessages) {
+                    console.warn("The current scene " + root.SceneManager._scene.constructor.name + " does not have a .layout method; the game will not render properly until the next scene transition.");
                 }
             }
         }
