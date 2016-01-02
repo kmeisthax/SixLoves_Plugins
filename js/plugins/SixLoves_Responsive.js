@@ -477,8 +477,8 @@ this.SixLoves_Responsive = this.SixLoves_Responsive || {};
      * This is the last piece in resolution-independence; windows will be able
      * to draw content correctly...
      */
-    root.Window_Base.prototype.createContents = function() {
-        this.contents = new Bitmap(this.contentsWidth(), this.contentsHeight(), pixelScaleDiscrepancy);
+    root.Window_Base.prototype.createContents = function () {
+        this.contents = new root.Bitmap(this.contentsWidth(), this.contentsHeight(), pixelScaleDiscrepancy);
         this.resetFontSettings();
     };
 
@@ -492,8 +492,6 @@ this.SixLoves_Responsive = this.SixLoves_Responsive || {};
 
             if (drawingScale === undefined) {
                 drawingScale = 1;
-            } else {
-                //debugger;
             }
 
             childArgs[0] = Math.floor(width * drawingScale);
@@ -503,7 +501,7 @@ this.SixLoves_Responsive = this.SixLoves_Responsive || {};
 
             this._context.scale(drawingScale, drawingScale);
             this._baseTexture.resolution = drawingScale;
-        }
+        };
     }(root.Bitmap.prototype.initialize));
 
     /* Oh, and we also have to catch anyone resizing bitmaps, too. */
@@ -529,8 +527,7 @@ this.SixLoves_Responsive = this.SixLoves_Responsive || {};
      * just gonna be our little secret. Also, I'm fairly sure this is not what
      * PIXI upstream would prefer we do but I stopped caring.
      */
-    PIXI.Texture.prototype.setFrame = function(frame)
-    {
+    root.PIXI.Texture.prototype.setFrame = function (frame) {
         this.noFrame = false;
 
         this.frame = frame;
@@ -542,8 +539,7 @@ this.SixLoves_Responsive = this.SixLoves_Responsive || {};
         this.crop.width = frame.width;
         this.crop.height = frame.height;
 
-        if (!this.trim && (frame.x + frame.width > this.baseTexture.width || frame.y + frame.height > this.baseTexture.height))
-        {
+        if (!this.trim && (frame.x + frame.width > this.baseTexture.width || frame.y + frame.height > this.baseTexture.height)) {
             throw new Error('Texture Error: frame does not fit inside the base Texture dimensions ' + this);
         }
 
@@ -555,18 +551,18 @@ this.SixLoves_Responsive = this.SixLoves_Responsive || {};
 
         this.valid = frame && frame.width && frame.height && this.baseTexture.source && this.baseTexture.hasLoaded;
 
-        if (this.trim)
-        {
+        if (this.trim) {
             this.width = this.trim.width;
             this.height = this.trim.height;
             this.frame.width = this.trim.width;
             this.frame.height = this.trim.height;
         }
 
-        if (this.valid) this._updateUvs();
-
+        if (this.valid) {
+            this._updateUvs();
+        }
     };
-
+    
     /* Finally, we have to configure our rendering canvas to be the physical
      * resolution of the viewport, and not artscale units
      *
@@ -574,8 +570,8 @@ this.SixLoves_Responsive = this.SixLoves_Responsive || {};
      * some CSS to force the browser to shrink the canvas back down (or up, if
      * ArtScale is larger than the actual pixel ratio)
      */
-    root.Graphics._updateCanvas = function() {
-        var psd = pixelScaleDiscrepancy ? pixelScaleDiscrepancy : 1;
+    root.Graphics._updateCanvas = function () {
+        var psd = pixelScaleDiscrepancy !== undefined ? pixelScaleDiscrepancy : 1;
 
         this._canvas.width = this._width * psd;
         this._canvas.height = this._height * psd;
@@ -599,8 +595,8 @@ this.SixLoves_Responsive = this.SixLoves_Responsive || {};
     /* Tell the PIXI renderer about the pixel scale discrepancy so that it uses
      * the extra resolution we've given/taken to/from it
      */
-    root.Graphics._updateRenderer = function() {
-        var psd = pixelScaleDiscrepancy ? pixelScaleDiscrepancy : 1;
+    root.Graphics._updateRenderer = function () {
+        var psd = pixelScaleDiscrepancy !== undefined ? pixelScaleDiscrepancy : 1;
 
         if (this._renderer) {
             this._renderer.resolution = psd;
