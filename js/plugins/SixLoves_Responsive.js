@@ -1,4 +1,4 @@
-/*jslint nomen:false*/
+/*jslint nomen:true*/
 /*global console*/
 
 /*:
