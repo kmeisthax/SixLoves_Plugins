@@ -3,7 +3,7 @@
 
 /*:
  * @author David Wendt (fantranslation.org)
- * @plugindesc A bunch of text rendering fixes for SixLoves. v0.2.0
+ * @plugindesc A bunch of text rendering fixes for SixLoves. v0.2.2
  */
 
 this.SixLoves_TextSystem = this.SixLoves_TextSystem || {};
@@ -318,5 +318,5 @@ this.SixLoves_TextSystem = this.SixLoves_TextSystem || {};
     };
 
     module.status = "loaded";
-    module.version = "0.2.0";
+    module.version = "0.2.2";
 }(this, this.SixLoves_TextSystem));
