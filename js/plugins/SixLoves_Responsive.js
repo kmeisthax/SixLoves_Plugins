@@ -499,7 +499,7 @@ this.SixLoves_Responsive = this.SixLoves_Responsive || {};
 
             old_impl.apply(this, childArgs);
 
-            this._context.scale(drawingScale, drawingScale);
+            this._context.setTransform(drawingScale, 0, 0, drawingScale, 0, 0);
             this._baseTexture.resolution = drawingScale;
         };
     }(root.Bitmap.prototype.initialize));
@@ -512,11 +512,64 @@ this.SixLoves_Responsive = this.SixLoves_Responsive || {};
 
         width = Math.floor(Math.max(width || 0, 1) * drawingScale);
         height = Math.floor(Math.max(height || 0, 1) * drawingScale);
+
         this._canvas.width = width;
         this._canvas.height = height;
         this._baseTexture.width = width;
         this._baseTexture.height = height;
         this._baseTexture.resolution = drawingScale;
+
+        this._context.setTransform(drawingScale, 0, 0, drawingScale, 0, 0);
+    };
+
+    /* Lie about our size to the outside world. */
+    Object.defineProperty(root.Bitmap.prototype, 'width', {
+        get: function () {
+            return this._isLoading ? 0 : this._canvas.width / this._baseTexture.resolution;
+        },
+        configurable: true
+    });
+
+    Object.defineProperty(root.Bitmap.prototype, 'height', {
+        get: function () {
+            return this._isLoading ? 0 : this._canvas.height / this._baseTexture.resolution;
+        },
+        configurable: true
+    });
+
+    /* If someone tries to draw on us with high-resolution imagery, we have to
+     * catch that, too. Gee, lying can be a pain sometimes
+     */
+    root.Bitmap.prototype.blt = function (source, sx, sy, sw, sh, dx, dy, dw, dh) {
+        var source_res = 1;
+
+        if (source._baseTexture !== undefined && source._baseTexture.resolution !== undefined) {
+            source_res = source._baseTexture.resolution;
+        }
+
+        //Some functions don't fill out destination width or height,
+        //expecting not to scale things.
+        //Of course, now that we support true high-res, every blit is also a
+        //potential scale.
+        if (dw === undefined) {
+            dw = sw;
+        }
+
+        if (dh === undefined) {
+            dh = sh;
+        }
+
+        sx = Math.floor(sx * source_res);
+        sy = Math.floor(sy * source_res);
+        sw = Math.floor(sw * source_res);
+        sh = Math.floor(sh * source_res);
+
+        if (sx >= 0 && sy >= 0 && sw > 0 && sh > 0 && dw > 0 && dh > 0 &&
+                sx + sw <= source._canvas.width && sy + sh <= source._canvas.height) {
+            this._context.globalCompositeOperation = 'source-over';
+            this._context.drawImage(source._canvas, sx, sy, sw, sh, dx, dy, dw, dh);
+            this._setDirty();
+        }
     };
 
     /* There's what I -think- is a bug in PIXI where setFrame
