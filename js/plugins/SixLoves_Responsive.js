@@ -597,8 +597,13 @@ this.SixLoves_Responsive = this.SixLoves_Responsive || {};
         }
 
         //It's only -after- that check that we can do this:
+        this.frame.x *= this.baseTexture.resolution;
+        this.frame.y *= this.baseTexture.resolution;
         this.frame.width *= this.baseTexture.resolution;
         this.frame.height *= this.baseTexture.resolution;
+
+        this.crop.x *= this.baseTexture.resolution;
+        this.crop.y *= this.baseTexture.resolution;
         this.crop.width *= this.baseTexture.resolution;
         this.crop.height *= this.baseTexture.resolution;
 
