@@ -513,6 +513,16 @@ this.SixLoves_Responsive_MVCore = this.SixLoves_Responsive_MVCore || {};
     root.Window_Base.prototype.updateTone.frame_adaptive = true;
     root.Window_Base.prototype.updateBackgroundDimmer.frame_adaptive = true;
 
+    /* Window_Base actually does pixel-level sampling of the window skin graphic
+     * which means we have to manually highres this shit
+     */
+    Window_Base.prototype.textColor = function(n) {
+        var px = 96 + (n % 8) * 12 + 6;
+        var py = 144 + Math.floor(n / 8) * 12 + 6;
+        return this.windowskin.getPixel(Math.floor(px * this.windowskin._baseTexture.resolution),
+                                        Math.floor(py * this.windowskin._baseTexture.resolution));
+    };
+
     /* Update Window_Selectable with frame-adaptive code.
      */
     root.Window_Selectable.prototype.update = function (frameCount) {
