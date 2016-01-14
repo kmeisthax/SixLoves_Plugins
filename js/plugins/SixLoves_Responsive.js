@@ -525,14 +525,14 @@ this.SixLoves_Responsive = this.SixLoves_Responsive || {};
     /* Lie about our size to the outside world. */
     Object.defineProperty(root.Bitmap.prototype, 'width', {
         get: function () {
-            return this._isLoading ? 0 : this._canvas.width / this._baseTexture.resolution;
+            return this._isLoading ? 0 : Math.round(this._canvas.width / this._baseTexture.resolution);
         },
         configurable: true
     });
 
     Object.defineProperty(root.Bitmap.prototype, 'height', {
         get: function () {
-            return this._isLoading ? 0 : this._canvas.height / this._baseTexture.resolution;
+            return this._isLoading ? 0 : Math.round(this._canvas.height / this._baseTexture.resolution);
         },
         configurable: true
     });
@@ -621,6 +621,257 @@ this.SixLoves_Responsive = this.SixLoves_Responsive || {};
         }
     };
     
+    /* Here's what is DEFINITELY a bug in PIXI: no high-res filtering.
+     * Unfortunately the fix is v3 only, and as the v2 branch has never been
+     * updated, here we are.
+     */
+    root.PIXI.WebGLFilterManager.prototype.pushFilter = function(filterBlock) {
+        var gl = this.gl;
+
+        var projection = this.renderSession.projection;
+        var offset = this.renderSession.offset;
+
+        filterBlock._filterArea = filterBlock.target.filterArea || filterBlock.target.getBounds();
+
+        // filter program
+        // OPTIMISATION - the first filter is free if its a simple color change?
+        this.filterStack.push(filterBlock);
+
+        var filter = filterBlock.filterPasses[0];
+
+        this.offsetX += filterBlock._filterArea.x;
+        this.offsetY += filterBlock._filterArea.y;
+
+        var texture = this.texturePool.pop();
+        if(!texture)
+        {
+            texture = new PIXI.FilterTexture(this.gl, this.width * this.renderSession.resolution, this.height * this.renderSession.resolution);
+        }
+        else
+        {
+            texture.resize(this.width * this.renderSession.resolution, this.height * this.renderSession.resolution);
+        }
+
+        gl.bindTexture(gl.TEXTURE_2D,  texture.texture);
+
+        var filterArea = filterBlock._filterArea;// filterBlock.target.getBounds();///filterBlock.target.filterArea;
+
+        var padding = filter.padding;
+        filterArea.x -= padding;
+        filterArea.y -= padding;
+        filterArea.width += padding * 2;
+        filterArea.height += padding * 2;
+
+        // cap filter to screen size..
+        if(filterArea.x < 0)filterArea.x = 0;
+        if(filterArea.width > this.width)filterArea.width = this.width;
+        if(filterArea.y < 0)filterArea.y = 0;
+        if(filterArea.height > this.height)filterArea.height = this.height;
+
+        //gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA,  filterArea.width, filterArea.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, texture.frameBuffer);
+
+        // set view port
+        gl.viewport(0, 0, filterArea.width * this.renderSession.resolution, filterArea.height * this.renderSession.resolution);
+
+        projection.x = filterArea.width/2;
+        projection.y = -filterArea.height/2;
+
+        offset.x = -filterArea.x;
+        offset.y = -filterArea.y;
+
+        // update projection
+        // now restore the regular shader..
+        // this.renderSession.shaderManager.setShader(this.defaultShader);
+        //gl.uniform2f(this.defaultShader.projectionVector, filterArea.width/2, -filterArea.height/2);
+        //gl.uniform2f(this.defaultShader.offsetVector, -filterArea.x, -filterArea.y);
+
+        gl.colorMask(true, true, true, true);
+        gl.clearColor(0,0,0, 0);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+
+        filterBlock._glFilterTexture = texture;
+
+    };
+
+    /**
+    * Removes the last filter from the filter stack and doesn't return it.
+    *
+    * @method popFilter
+    */
+    root.PIXI.WebGLFilterManager.prototype.popFilter = function() {
+        var gl = this.gl;
+        var filterBlock = this.filterStack.pop();
+        var filterArea = filterBlock._filterArea;
+        var texture = filterBlock._glFilterTexture;
+        var projection = this.renderSession.projection;
+        var offset = this.renderSession.offset;
+
+        if(filterBlock.filterPasses.length > 1)
+        {
+            gl.viewport(0, 0, filterArea.width * this.renderSession.resolution, filterArea.height * this.renderSession.resolution);
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
+
+            this.vertexArray[0] = 0;
+            this.vertexArray[1] = filterArea.height * this.renderSession.resolution;
+
+            this.vertexArray[2] = filterArea.width * this.renderSession.resolution;
+            this.vertexArray[3] = filterArea.height * this.renderSession.resolution;
+
+            this.vertexArray[4] = 0;
+            this.vertexArray[5] = 0;
+
+            this.vertexArray[6] = filterArea.width * this.renderSession.resolution;
+            this.vertexArray[7] = 0;
+
+            gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.vertexArray);
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, this.uvBuffer);
+            // now set the uvs..
+            this.uvArray[2] = filterArea.width/this.width;
+            this.uvArray[5] = filterArea.height/this.height;
+            this.uvArray[6] = filterArea.width/this.width;
+            this.uvArray[7] = filterArea.height/this.height;
+
+            gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.uvArray);
+
+            var inputTexture = texture;
+            var outputTexture = this.texturePool.pop();
+            if(!outputTexture)outputTexture = new PIXI.FilterTexture(this.gl, this.width * this.renderSession.resolution, this.height * this.renderSession.resolution);
+            outputTexture.resize(this.width * this.renderSession.resolution, this.height * this.renderSession.resolution);
+
+            // need to clear this FBO as it may have some left over elements from a previous filter.
+            gl.bindFramebuffer(gl.FRAMEBUFFER, outputTexture.frameBuffer );
+            gl.clear(gl.COLOR_BUFFER_BIT);
+
+            gl.disable(gl.BLEND);
+
+            for (var i = 0; i < filterBlock.filterPasses.length-1; i++)
+            {
+                var filterPass = filterBlock.filterPasses[i];
+
+                gl.bindFramebuffer(gl.FRAMEBUFFER, outputTexture.frameBuffer );
+
+                // set texture
+                gl.activeTexture(gl.TEXTURE0);
+                gl.bindTexture(gl.TEXTURE_2D, inputTexture.texture);
+
+                // draw texture..
+                //filterPass.applyFilterPass(filterArea.width, filterArea.height);
+                this.applyFilterPass(filterPass, filterArea, filterArea.width * this.renderSession.resolution, filterArea.height * this.renderSession.resolution);
+
+                // swap the textures..
+                var temp = inputTexture;
+                inputTexture = outputTexture;
+                outputTexture = temp;
+            }
+
+            gl.enable(gl.BLEND);
+
+            texture = inputTexture;
+            this.texturePool.push(outputTexture);
+        }
+
+        var filter = filterBlock.filterPasses[filterBlock.filterPasses.length-1];
+
+        this.offsetX -= filterArea.x;
+        this.offsetY -= filterArea.y;
+
+        var sizeX = this.width;
+        var sizeY = this.height;
+
+        var offsetX = 0;
+        var offsetY = 0;
+
+        var buffer = this.buffer;
+
+        // time to render the filters texture to the previous scene
+        if(this.filterStack.length === 0)
+        {
+            gl.colorMask(true, true, true, true);//this.transparent);
+        }
+        else
+        {
+            var currentFilter = this.filterStack[this.filterStack.length-1];
+            filterArea = currentFilter._filterArea;
+
+            sizeX = filterArea.width;
+            sizeY = filterArea.height;
+
+            offsetX = filterArea.x;
+            offsetY = filterArea.y;
+
+            buffer =  currentFilter._glFilterTexture.frameBuffer;
+        }
+
+        // TODO need to remove these global elements..
+        projection.x = sizeX/2;
+        projection.y = -sizeY/2;
+
+        offset.x = offsetX;
+        offset.y = offsetY;
+
+        filterArea = filterBlock._filterArea;
+
+        var x = filterArea.x-offsetX;
+        var y = filterArea.y-offsetY;
+
+        // update the buffers..
+        // make sure to flip the y!
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
+
+        //Apparantly adding the resolution multiplier here breaks things
+        this.vertexArray[0] = x;
+        this.vertexArray[1] = y + filterArea.height;
+
+        this.vertexArray[2] = x + filterArea.width;
+        this.vertexArray[3] = y + filterArea.height;
+
+        this.vertexArray[4] = x;
+        this.vertexArray[5] = y;
+
+        this.vertexArray[6] = x + filterArea.width;
+        this.vertexArray[7] = y;
+
+        console.log(this.vertexArray[1]);
+
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.vertexArray);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.uvBuffer);
+
+        this.uvArray[2] = filterArea.width/this.width;
+        this.uvArray[5] = filterArea.height/this.height;
+        this.uvArray[6] = filterArea.width/this.width;
+        this.uvArray[7] = filterArea.height/this.height;
+
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.uvArray);
+
+        gl.viewport(0, 0, sizeX * this.renderSession.resolution, sizeY * this.renderSession.resolution);
+
+        // bind the buffer
+        gl.bindFramebuffer(gl.FRAMEBUFFER, buffer );
+
+        // set the blend mode!
+        //gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
+
+        // set texture
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, texture.texture);
+
+        // apply!
+        this.applyFilterPass(filter, filterArea, sizeX, sizeY);
+
+        // now restore the regular shader.. should happen automatically now..
+        // this.renderSession.shaderManager.setShader(this.defaultShader);
+        // gl.uniform2f(this.defaultShader.projectionVector, sizeX/2, -sizeY/2);
+        // gl.uniform2f(this.defaultShader.offsetVector, -offsetX, -offsetY);
+
+        // return the texture to the pool
+        this.texturePool.push(texture);
+        filterBlock._glFilterTexture = null;
+    };
+
     /* Finally, we have to configure our rendering canvas to be the physical
      * resolution of the viewport, and not artscale units
      *
