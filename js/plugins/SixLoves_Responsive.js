@@ -243,6 +243,18 @@ this.SixLoves_Responsive = this.SixLoves_Responsive || {};
         console.warn("Debugging framerate is on. You should turn this off if you are not testing update logic.");
     }
 
+    /* == DEBUG TOOLS == */
+
+    /* Given an object, name it.
+     */
+    function name_of(an_object) {
+        if (an_object.constructor.name === "Function") {
+            return an_object.name;
+        }
+
+        return an_object.constructor.name;
+    }
+
     /* == FRAME-RATE ADAPTIVE GAME LOGIC == */
 
     /* Helper function that repeatedly executes an update callback to emulate
@@ -269,8 +281,8 @@ this.SixLoves_Responsive = this.SixLoves_Responsive || {};
                 debugger;
             }
 
-            if (nonAdaptive.indexOf(updateThis.constructor.name) === -1) {
-                nonAdaptive.push(updateThis.constructor.name);
+            if (nonAdaptive.indexOf(name_of(updateThis)) === -1) {
+                nonAdaptive.push(name_of(updateThis));
             }
         }
 
@@ -442,7 +454,7 @@ this.SixLoves_Responsive = this.SixLoves_Responsive || {};
                 }
             } else {
                 if (debugLogMessages) {
-                    console.warn("The current scene " + root.SceneManager._scene.constructor.name + " does not have a .layout method; the game will not render properly until the next scene transition.");
+                    console.warn("The current scene " + name_of(root.SceneManager._scene) + " does not have a .layout method; the game will not render properly until the next scene transition.");
                 }
             }
         }
@@ -465,8 +477,8 @@ this.SixLoves_Responsive = this.SixLoves_Responsive || {};
             if (children[i].layout) {
                 children[i].layout();
             } else {
-                if (nonResponsive.indexOf(children[1].constructor.name) === -1) {
-                    nonResponsive.push(children[1].constructor.name);
+                if (nonResponsive.indexOf(name_of(children[1])) === -1) {
+                    nonResponsive.push(name_of(children[1]));
                 }
             }
         }
