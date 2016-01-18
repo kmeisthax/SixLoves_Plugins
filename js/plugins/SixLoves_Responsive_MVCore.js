@@ -268,16 +268,23 @@ this.SixLoves_Responsive_MVCore = this.SixLoves_Responsive_MVCore || {};
 
     root.Tilemap.prototype.update.frame_adaptive = true;
 
+    /* This function patches _createLayers to create high-resolution cache
+     * surfaces for the Tilemap. It's a little different; however; we round up
+     * the pixel ratio now to avoid getting gaps where a fractional-ratio
+     * surface would get cut up and rounded in different directions.
+     */
     root.Tilemap.prototype._createLayers = function() {
-        var width = this._width;
-        var height = this._height;
-        var margin = this._margin;
-        var tileCols = Math.ceil(width / this._tileWidth) + 1;
-        var tileRows = Math.ceil(height / this._tileHeight) + 1;
-        var layerWidth = tileCols * this._tileWidth;
-        var layerHeight = tileRows * this._tileHeight;
-        this._lowerBitmap = new Bitmap(layerWidth, layerHeight, SixLoves_Responsive.get_artscale_pixel_ratio());
-        this._upperBitmap = new Bitmap(layerWidth, layerHeight, SixLoves_Responsive.get_artscale_pixel_ratio());
+        var pixel_ratio = Math.ceil(root.SixLoves_Responsive.get_artscale_pixel_ratio()),
+            width = this._width,
+            height = this._height,
+            margin = this._margin,
+            tileCols = Math.ceil(width / this._tileWidth) + 1,
+            tileRows = Math.ceil(height / this._tileHeight) + 1,
+            layerWidth = tileCols * this._tileWidth,
+            layerHeight = tileRows * this._tileHeight;
+
+        this._lowerBitmap = new Bitmap(layerWidth, layerHeight, pixel_ratio);
+        this._upperBitmap = new Bitmap(layerWidth, layerHeight, pixel_ratio);
         this._layerWidth = layerWidth;
         this._layerHeight = layerHeight;
 
@@ -359,7 +366,7 @@ this.SixLoves_Responsive_MVCore = this.SixLoves_Responsive_MVCore || {};
             var d = this._flashDuration;
             this._flashDuration = Math.max(this._flashDuration - frameCount, 0);
 
-            this._flashColor[3] *= (d - 1) / d;
+            this._flashColor[3] *= (d - frameCount) / d;
             this._target.setBlendColor(this._flashColor);
         }
 
@@ -380,7 +387,7 @@ this.SixLoves_Responsive_MVCore = this.SixLoves_Responsive_MVCore || {};
             if (this._screenFlashSprite) {
                 this._screenFlashSprite.x = -this.absoluteX();
                 this._screenFlashSprite.y = -this.absoluteY();
-                this._screenFlashSprite.opacity *= (d - 1) / d;
+                this._screenFlashSprite.opacity *= (d - frameCount) / d;
                 this._screenFlashSprite.visible = (this._screenFlashDuration > 0);
             }
         }
@@ -1251,7 +1258,7 @@ this.SixLoves_Responsive_MVCore = this.SixLoves_Responsive_MVCore || {};
 
         if (this._fadeOutDuration > 0) {
             var d = this._fadeOutDuration;
-            this._brightness = (this._brightness * (d - 1)) / d;
+            this._brightness = (this._brightness * (d - frameCount)) / d;
             this._fadeOutDuration = Math.max(this._fadeOutDuration - frameCount, 0);
         }
 
@@ -1267,7 +1274,7 @@ this.SixLoves_Responsive_MVCore = this.SixLoves_Responsive_MVCore || {};
 
         if (this._fadeInDuration > 0) {
             var d = this._fadeInDuration;
-            this._brightness = (this._brightness * (d - 1) + 255) / d;
+            this._brightness = (this._brightness * (d - frameCount) + 255) / d;
             this._fadeInDuration = Math.max(this._fadeInDuration - frameCount, 0);
         }
 
@@ -1286,7 +1293,7 @@ this.SixLoves_Responsive_MVCore = this.SixLoves_Responsive_MVCore || {};
         if (this._toneDuration > 0) {
             d = this._toneDuration;
             for (i = 0; i < 4; i += 1) {
-                this._tone[i] = (this._tone[i] * (d - 1) + this._toneTarget[i]) / d;
+                this._tone[i] = (this._tone[i] * (d - frameCount) + this._toneTarget[i]) / d;
             }
             this._toneDuration = Math.max(this._toneDuration - frameCount, 0);
         }
@@ -1303,7 +1310,7 @@ this.SixLoves_Responsive_MVCore = this.SixLoves_Responsive_MVCore || {};
 
         if (this._flashDuration > 0) {
             var d = this._flashDuration;
-            this._flashColor[3] *= (d - 1) / d;
+            this._flashColor[3] *= (d - frameCount) / d;
             this._flashDuration = Math.max(this._flashDuration - frameCount, 0);
         } else {
             this._flashColor[3] = 0;
@@ -1352,7 +1359,7 @@ this.SixLoves_Responsive_MVCore = this.SixLoves_Responsive_MVCore || {};
         if (this._zoomDuration > 0) {
             d = this._zoomDuration;
             t = this._zoomScaleTarget;
-            this._zoomScale = (this._zoomScale * (d - 1) + t) / d;
+            this._zoomScale = (this._zoomScale * (d - frameCount) + t) / d;
             this._zoomDuration = Math.max(this._zoomDuration - frameCount, 0);
         }
 
@@ -1371,7 +1378,7 @@ this.SixLoves_Responsive_MVCore = this.SixLoves_Responsive_MVCore || {};
         if (this._weatherDuration > 0) {
             d = this._weatherDuration;
             t = this._weatherPowerTarget;
-            this._weatherPower = (this._weatherPower * (d - 1) + t) / d;
+            this._weatherPower = (this._weatherPower * (d - frameCount) + t) / d;
             this._weatherDuration = Math.max(this._weatherDuration - frameCount, 0);
             if (this._weatherDuration === 0 && this._weatherPowerTarget === 0) {
                 this._weatherType = 'none';
@@ -2008,7 +2015,7 @@ this.SixLoves_Responsive_MVCore = this.SixLoves_Responsive_MVCore || {};
         if (this._flashDuration > 0) {
             var d = this._flashDuration;
             this._flashDuration = Math.max(this._flashDuration - frameCount, 0);
-            this._flashColor[3] *= (d - 1) / d;
+            this._flashColor[3] *= (d - frameCount) / d;
         }
 
         return frameCount;
@@ -2371,13 +2378,13 @@ this.SixLoves_Responsive_MVCore = this.SixLoves_Responsive_MVCore || {};
         this.checkToNotClose();
         frameCount = force_frame_adaptive(frameCount, root.Window_Base.prototype.update, this);
         while (!this.isOpening() && !this.isClosing()) {
-            if (this.updateWait()) {
+            if (this.updateWait(frameCount)) {
                 return;
             } else if (this.updateLoading()) {
                 return;
             } else if (this.updateInput()) {
                 return;
-            } else if (this.updateMessage()) {
+            } else if (this.updateMessage(frameCount)) {
                 return;
             } else if (this.canStart()) {
                 this.startMessage();
@@ -2391,6 +2398,65 @@ this.SixLoves_Responsive_MVCore = this.SixLoves_Responsive_MVCore || {};
     };
 
     root.Window_Message.prototype.update.frame_adaptive = true;
+
+    root.Window_Message.prototype.updateWait = function (frameCount) {
+        if (frameCount === undefined) {
+            frameCount = 1;
+        }
+
+        if (this._waitCount > 0) {
+            this._waitCount = Math.max(this._waitCount - frameCount, 0);
+            return true;
+        } else {
+            return false;
+        }
+
+        //We can't actually return framecount here, which means this function
+        //also can't be forced frame adaptive either.
+    };
+
+    root.Window_Message.prototype.updateMessage = function (frameCount) {
+        if (frameCount === undefined) {
+            frameCount = 1;
+        }
+
+        //See if we have any excess time we left previously
+        if (this.__SixLoves_Responsive__messageFrameResidue === undefined) {
+            this.__SixLoves_Responsive__messageFrameResidue = 0;
+        }
+
+        frameCount += this.__SixLoves_Responsive__messageFrameResidue;
+
+        if (this._textState) {
+            while (!this.isEndOfText(this._textState) && frameCount >= 1) {
+                if (this.needsNewPage(this._textState)) {
+                    this.newPage(this._textState);
+                }
+                this.updateShowFast();
+                this.processCharacter(this._textState);
+                if (!this._showFast && !this._lineShowFast) {
+                    //Instead of breaking, decrement the framecount so we can
+                    //see if we have to write more letters to keep up with the
+                    //text speed
+                    frameCount -= 1;
+                }
+                if (this.pause || this._waitCount > 0) {
+                    //waiting should kill remaining frame residue
+                    frameCount = 0;
+                    break;
+                }
+            }
+
+            if (this.isEndOfText(this._textState)) {
+                this.onEndOfText();
+            }
+
+            this.__SixLoves_Responsive__messageFrameResidue = frameCount;
+            return true;
+        } else {
+            return false;
+        }
+    };
 
     root.Window_ScrollText.prototype.update = function (frameCount) {
         if (frameCount === undefined) {
