@@ -625,7 +625,7 @@ this.SixLoves_Responsive = this.SixLoves_Responsive || {};
      * Unfortunately the fix is v3 only, and as the v2 branch has never been
      * updated, here we are.
      */
-    root.PIXI.WebGLFilterManager.prototype.pushFilter = function(filterBlock) {
+    root.PIXI.WebGLFilterManager.prototype.pushFilter = function (filterBlock) {
         var gl = this.gl;
 
         var projection = this.renderSession.projection;
@@ -833,8 +833,6 @@ this.SixLoves_Responsive = this.SixLoves_Responsive || {};
 
         this.vertexArray[6] = x + filterArea.width;
         this.vertexArray[7] = y;
-
-        console.log(this.vertexArray[1]);
 
         gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.vertexArray);
 
