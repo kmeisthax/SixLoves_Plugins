@@ -477,8 +477,8 @@ this.SixLoves_Responsive = this.SixLoves_Responsive || {};
             if (children[i].layout) {
                 children[i].layout();
             } else {
-                if (nonResponsive.indexOf(name_of(children[1])) === -1) {
-                    nonResponsive.push(name_of(children[1]));
+                if (nonResponsive.indexOf(name_of(children[i])) === -1) {
+                    nonResponsive.push(name_of(children[i]));
                 }
             }
         }
