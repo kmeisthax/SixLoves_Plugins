@@ -58,7 +58,7 @@
  * intentionally lying about your image tiers is not a good idea.
  */
 
-this.SixLoves_HDAssets = this.SixLoves_HDAssets || {};
+this.SixLoves_VectorGraphics = this.SixLoves_VectorGraphics || {};
 
 (function (root, module) {
     "use strict";
@@ -280,4 +280,4 @@ this.SixLoves_HDAssets = this.SixLoves_HDAssets || {};
 
     module.status = "loaded";
     module.version = "0.3.0";
-}(this, this.SixLoves_HDAssets));
+}(this, this.SixLoves_VectorGraphics));
