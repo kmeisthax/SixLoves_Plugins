@@ -2492,7 +2492,111 @@ this.SixLoves_Responsive_MVCore = this.SixLoves_Responsive_MVCore || {};
     };
 
     root.Window_ScrollText.prototype.updateMessage.frame_adaptive = true;
-
+    
+    /* == SPECIAL PURPOSE IMPLEMENTATIONS: Battle system == */
+    root.Scene_Battle.prototype.update = function (frameCount) {
+        var $gtTimer,
+            active = this.isActive();
+        
+        if (frameCount === undefined) {
+            frameCount = 1;
+        }
+        
+        $gtTimer = root.$gameTimer.update.bind(root.$gameTimer, [active]);
+        $gtTimer.frame_adaptive = root.$gameTimer.update.frame_adaptive;
+        
+        frameCount = force_frame_adaptive(frameCount, $gtTimer, root.$gameTimer);
+        frameCount = force_frame_adaptive(frameCount, root.$gameScreen.update, root.$gameScreen);
+        frameCount = force_frame_adaptive(frameCount, this.updateStatusWindow, this);
+        frameCount = force_frame_adaptive(frameCount, this.updateWindowPositions, this);
+        if (active && !this.isBusy()) {
+            frameCount = force_frame_adaptive(frameCount, this.updateBattleProcess, this);
+        }
+        frameCount = force_frame_adaptive(frameCount, root.Scene_Base.prototype.update, this);
+        
+        return frameCount;
+    };
+    
+    root.Scene_Battle.prototype.update.frame_adaptive = true;
+    
+    root.Scene_Battle.prototype.updateStatusWindow = function (frameCount) {
+        if (frameCount === undefined) {
+            frameCount = 1;
+        }
+        
+        if (root.$gameMessage.isBusy()) {
+            this._statusWindow.close();
+            this._partyCommandWindow.close();
+            this._actorCommandWindow.close();
+        } else if (this.isActive() && !this._messageWindow.isClosing()) {
+            this._statusWindow.open();
+        }
+        
+        return frameCount;
+    };
+    
+    root.Scene_Battle.prototype.updateStatusWindow.frame_adaptive = true;
+    
+    root.Scene_Battle.prototype.updateWindowPositions = function (frameCount) {
+        var statusX = 0;
+        
+        if (frameCount === undefined) {
+            frameCount = 1;
+        }
+        
+        if (root.BattleManager.isInputting()) {
+            statusX = this._partyCommandWindow.width;
+        } else {
+            statusX = this._partyCommandWindow.width / 2;
+        }
+        
+        if (this._statusWindow.x < statusX) {
+            this._statusWindow.x = Math.min(this._statusWindow.x + 16 * frameCount, statusX);
+        }
+        
+        if (this._statusWindow.x > statusX) {
+            this._statusWindow.x = Math.max(this._statusWindow.x - 16 * frameCount, statusX);
+        }
+        
+        return frameCount;
+    };
+    
+    root.Scene_Battle.prototype.updateWindowPositions.frame_adaptive = true;
+    
+    root.Scene_Battle.prototype.updateBattleProcess = function (frameCount) {
+        if (frameCount === undefined) {
+            frameCount = 1;
+        }
+        
+        if (!this.isAnyInputWindowActive() || root.BattleManager.isAborting() ||
+                root.BattleManager.isBattleEnd()) {
+            //TODO: Does BattleManager contain any code that needs patching?
+            root.BattleManager.update();
+            this.changeInputWindow();
+        }
+        
+        return frameCount;
+    };
+    
+    root.Scene_Battle.prototype.updateBattleProcess.frame_adaptive = true;
+    
+    root.Game_Timer.prototype.update = function (sceneActive, frameCount) {
+        if (frameCount === undefined) {
+            frameCount = 1;
+        }
+        
+        if (sceneActive && this._working && this._frames > 0) {
+            this._frames = Math.max(this._frames - frameCount, 0);
+            if (this._frames === 0) {
+                this.onExpire();
+            }
+        }
+        
+        return frameCount;
+    };
+    
+    root.Game_Timer.prototype.update.frame_adaptive = true;
+    
     /* == SPECIAL PURPOSE IMPLEMENTATIONS: Debug menu == */
     root.Window_DebugRange.prototype.update = function (frameCount) {
         if (frameCount === undefined) {
