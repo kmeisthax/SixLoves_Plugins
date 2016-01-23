@@ -2096,6 +2096,103 @@ this.SixLoves_Responsive_MVCore = this.SixLoves_Responsive_MVCore || {};
 
         return frameCount;
     };
+    
+    /* Spriteset_Battle creates a tiling sprite to render the battle backgrounds
+     * which IMHO is the wrong choice: none of the battle backgrounds available
+     * are tileable.
+     */
+    root.Spriteset_Battle.prototype.createBattleback = function () {
+        var margin = 32;
+        var x = -this._battleField.x - margin;
+        var y = -this._battleField.y - margin;
+        var width = Graphics.width + margin * 2;
+        var height = Graphics.height + margin * 2;
+        this._back1Sprite = new Sprite();
+        this._back2Sprite = new Sprite();
+        this._back1Sprite.bitmap = this.battleback1Bitmap();
+        this._back2Sprite.bitmap = this.battleback2Bitmap();
+        this._back1Sprite.move(x, y, width, height);
+        this._back2Sprite.move(x, y, width, height);
+        this._battleField.addChild(this._back1Sprite);
+        this._battleField.addChild(this._back2Sprite);
+    };
+    
+    function cover(sprite, parent) {
+        var x = 0, y = 0, width, height, centerPt, zoomFactor,
+            parentAR = parent.width / parent.height,
+            spriteAR = sprite.bitmap.width / sprite.bitmap.height;
+        
+        if (parentAR > spriteAR) { //Parent is wider than sprite
+            zoomFactor = parent.width / sprite.bitmap.width;
+            height = sprite.bitmap.width / spriteAR * zoomFactor;
+            width = parent.width;
+            x = 0;
+            y = (height - parent.height) / -2;
+            
+        } else { //Parent is taller than sprite
+            zoomFactor = parent.height / sprite.bitmap.height;
+            width = sprite.bitmap.height * spriteAR * zoomFactor;
+            height = parent.height;
+            x = (width - parent.width) / -2;
+            y = 0;
+        }
+        
+        sprite.setFrame(0, 0, width, height);
+        sprite.position.x = x;
+        sprite.position.y = y;
+        sprite.scale.x = zoomFactor;
+        sprite.scale.y = zoomFactor;
+    }
+    
+    /* Also, we have to patch this as Sprite is adjusted differently from
+     * TilingSprite
+     */
+    root.Spriteset_Battle.prototype.locateBattleback = function() {
+        var width = this._battleField.width,
+            height = this._battleField.height,
+            sprite1 = this._back1Sprite,
+            sprite2 = this._back2Sprite,
+            sprite1AR = sprite1.bitmap.width / sprite1.bitmap.height,
+            sprite2AR = sprite2.bitmap.width / sprite2.bitmap.height,
+            graphicsAR = width / height;
+        
+        cover(sprite1, this._battleField);
+        cover(sprite2, this._battleField);
+        
+        //TODO: test side view
+        if ($gameSystem.isSideView()) {
+            sprite1.setFrame(sprite1.frame.x, sprite1.x + sprite1.bitmap.height - height, width, height);
+            sprite2.setFrame(sprite2.frame.x, sprite1.y + sprite2.bitmap.height - height, width, height);
+        }
+    };
+    
+    /* Add a layout method */
+    root.Spriteset_Battle.prototype.layout = function () {
+        var width = Graphics.boxWidth,
+            height = Graphics.boxHeight,
+            x = (Graphics.width - width) / 2,
+            y = (Graphics.height - height) / 2;
+        
+        this.setFrame(0, 0, Graphics.width, Graphics.height);
+        this.width = Graphics.width;
+        this.height = Graphics.height;
+        
+        if (this._baseSprite) {
+            this._baseSprite.setFrame(0, 0, this.width, this.height);
+            this._baseSprite.filterArea.width = this.width;
+            this._baseSprite.filterArea.height = this.height;
+        }
+        
+        if (this._battleField) {
+            this._battleField.setFrame(0, 0, this.width, this.height);
+            this._battleField.x = 0;
+            this._battleField.y = 0;
+        }
+        
+        this.locateBattleback();
+        
+        root.Spriteset_Base.prototype.layout.call(this);
+    }
 
     /* BattleLog stuff.
      *
