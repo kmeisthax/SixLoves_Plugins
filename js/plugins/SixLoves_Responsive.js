@@ -882,6 +882,10 @@ this.SixLoves_Responsive = this.SixLoves_Responsive || {};
         filterBlock._glFilterTexture = null;
     };
 
+    root.PIXI.DisplayObjectContainer.prototype.layout = function () {
+        layout_all(this.children);
+    };
+
     /* Finally, we have to configure our rendering canvas to be the physical
      * resolution of the viewport, and not artscale units
      *
