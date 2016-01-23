@@ -273,8 +273,8 @@ this.SixLoves_Responsive_MVCore = this.SixLoves_Responsive_MVCore || {};
      * the pixel ratio now to avoid getting gaps where a fractional-ratio
      * surface would get cut up and rounded in different directions.
      */
-    root.Tilemap.prototype._createLayers = function() {
-        var pixel_ratio = Math.ceil(root.SixLoves_Responsive.get_artscale_pixel_ratio()),
+    root.Tilemap.prototype._createLayers = function () {
+        var i, pixel_ratio = Math.ceil(root.SixLoves_Responsive.get_artscale_pixel_ratio()),
             width = this._width,
             height = this._height,
             margin = this._margin,
@@ -283,8 +283,8 @@ this.SixLoves_Responsive_MVCore = this.SixLoves_Responsive_MVCore || {};
             layerWidth = tileCols * this._tileWidth,
             layerHeight = tileRows * this._tileHeight;
 
-        this._lowerBitmap = new Bitmap(layerWidth, layerHeight, pixel_ratio);
-        this._upperBitmap = new Bitmap(layerWidth, layerHeight, pixel_ratio);
+        this._lowerBitmap = new root.Bitmap(layerWidth, layerHeight, pixel_ratio);
+        this._upperBitmap = new root.Bitmap(layerWidth, layerHeight, pixel_ratio);
         this._layerWidth = layerWidth;
         this._layerHeight = layerHeight;
 
@@ -302,17 +302,17 @@ this.SixLoves_Responsive_MVCore = this.SixLoves_Responsive_MVCore || {};
          * 9 : Destination
          */
 
-        this._lowerLayer = new Sprite();
+        this._lowerLayer = new root.Sprite();
         this._lowerLayer.move(-margin, -margin, width, height);
         this._lowerLayer.z = 0;
 
-        this._upperLayer = new Sprite();
+        this._upperLayer = new root.Sprite();
         this._upperLayer.move(-margin, -margin, width, height);
         this._upperLayer.z = 4;
 
-        for (var i = 0; i < 4; i++) {
-            this._lowerLayer.addChild(new Sprite(this._lowerBitmap));
-            this._upperLayer.addChild(new Sprite(this._upperBitmap));
+        for (i = 0; i < 4; i += 1) {
+            this._lowerLayer.addChild(new root.Sprite(this._lowerBitmap));
+            this._upperLayer.addChild(new root.Sprite(this._upperBitmap));
         }
 
         this.addChild(this._lowerLayer);
@@ -523,9 +523,9 @@ this.SixLoves_Responsive_MVCore = this.SixLoves_Responsive_MVCore || {};
     /* Window_Base actually does pixel-level sampling of the window skin graphic
      * which means we have to manually highres this shit
      */
-    Window_Base.prototype.textColor = function(n) {
-        var px = 96 + (n % 8) * 12 + 6;
-        var py = 144 + Math.floor(n / 8) * 12 + 6;
+    root.Window_Base.prototype.textColor = function (n) {
+        var px = 96 + (n % 8) * 12 + 6,
+            py = 144 + Math.floor(n / 8) * 12 + 6;
         return this.windowskin.getPixel(Math.floor(px * this.windowskin._baseTexture.resolution),
                                         Math.floor(py * this.windowskin._baseTexture.resolution));
     };
