@@ -71,27 +71,27 @@ this.SixLoves_HDAssets = this.SixLoves_HDAssets || {};
     if (root.SixLoves_Responsive === undefined ||
         root.SixLoves_Responsive.status !== "loaded") {
         console.err("SixLoves_Responsive not present. HD asset support not installed.");
-        module.status = "not loaded";
+        module.status = "dependency missing";
         return;
     }
 
-    //Version must be 0.2.x where x >= 3
+    //Version must be 0.3.0 or any higher patch version
     ResponsiveVer = root.SixLoves_Responsive.version.split(".");
     if (ResponsiveVer[0] !== "0") {
         console.err("SixLoves_Responsive is an incompatible version. Please find an updated one.");
-        module.status = "not loaded";
+        module.status = "dependency missing";
         return;
     }
 
-    if (ResponsiveVer[1] !== "2") {
+    if (ResponsiveVer[1] !== "3") {
         console.err("SixLoves_Responsive is an incompatible version. Please find an updated one.");
-        module.status = "not loaded";
+        module.status = "dependency missing";
         return;
     }
 
-    if (Number(ResponsiveVer[2]) < 3) {
+    if (Number(ResponsiveVer[2]) < 0) {
         console.err("SixLoves_Responsive is an incompatible version. Please find an updated one.");
-        module.status = "not loaded";
+        module.status = "dependency missing";
         return;
     }
 
@@ -279,5 +279,5 @@ this.SixLoves_HDAssets = this.SixLoves_HDAssets || {};
     }
 
     module.status = "loaded";
-    module.version = "0.2.3";
+    module.version = "0.3.0";
 }(this, this.SixLoves_HDAssets));

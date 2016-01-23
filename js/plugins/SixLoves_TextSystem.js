@@ -318,5 +318,5 @@ this.SixLoves_TextSystem = this.SixLoves_TextSystem || {};
     };
 
     module.status = "loaded";
-    module.version = "0.2.3";
+    module.version = "0.3.0";
 }(this, this.SixLoves_TextSystem));

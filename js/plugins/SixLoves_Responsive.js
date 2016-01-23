@@ -935,5 +935,5 @@ this.SixLoves_Responsive = this.SixLoves_Responsive || {};
     module.updateFrameCap = updateFrameCap;
     
     module.status = "loaded";
-    module.version = "0.2.3";
+    module.version = "0.3.0";
 }(this, this.SixLoves_Responsive));
