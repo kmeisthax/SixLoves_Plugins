@@ -341,7 +341,8 @@ this.SixLoves_Responsive = this.SixLoves_Responsive || {};
 
         try {
             this.tickStart();
-            this.updateInputData();
+            //Removed in RPG MV 1.1
+            //this.updateInputData();
 
             actualFrameSkip = force_frame_adaptive(frameSkip, this.updateMain, this);
 
@@ -372,6 +373,7 @@ this.SixLoves_Responsive = this.SixLoves_Responsive || {};
             frameCount = 1;
         }
 
+        this.updateInputData();
         this.changeScene();
         frameCount = force_frame_adaptive(frameCount, this.updateScene, this);
         this.renderScene();
@@ -432,7 +434,8 @@ this.SixLoves_Responsive = this.SixLoves_Responsive || {};
 
         //Allow turning off full DPI support
         if (enableResolutionIndependence) {
-            pixelScaleDiscrepancy = displayScale / finalScale;
+            //We do not allow the pixel scale to go below 1, otherwise PIXI chokes
+            pixelScaleDiscrepancy = Math.max(displayScale / finalScale, 1);
         } else {
             pixelScaleDiscrepancy = 1;
         }
