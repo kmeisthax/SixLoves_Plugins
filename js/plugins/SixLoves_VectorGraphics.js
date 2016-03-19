@@ -281,6 +281,22 @@ this.SixLoves_VectorGraphics = this.SixLoves_VectorGraphics || {};
         }
     };
 
+    /* Determine if the bitmap was loaded from an SVG.
+     */
+    root.Bitmap.prototype.isVector = function () {
+        if (bitmap._image === undefined) {
+            //SVGs can only be loaded using Bitmap.load
+            return false;
+        }
+
+        if (bitmap._image.src.indexOf(".svg") !== -1) {
+            //SVGs have the letters "svg" in their filename
+            return true;
+        }
+
+        return false;
+    };
+
     module.status = "loaded";
     module.version = "0.3.0";
 }(this, this.SixLoves_VectorGraphics));
