@@ -486,16 +486,6 @@ this.SixLoves_Responsive = this.SixLoves_Responsive || {};
             }
         }
     }
-    
-    /* Adjust Window_Base to allocate window contents with a properly sized bitmap.
-     *
-     * This is the last piece in resolution-independence; windows will be able
-     * to draw content correctly...
-     */
-    root.Window_Base.prototype.createContents = function () {
-        this.contents = new root.Bitmap(this.contentsWidth(), this.contentsHeight(), pixelScaleDiscrepancy);
-        this.resetFontSettings();
-    };
 
     /* ...after these patches to Bitmap which will reframe literally all window
      * drawing operations in terms of virtual/CSS pixels instead of physical

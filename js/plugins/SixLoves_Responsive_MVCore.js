@@ -530,6 +530,16 @@ this.SixLoves_Responsive_MVCore = this.SixLoves_Responsive_MVCore || {};
                                         Math.floor(py * this.windowskin._baseTexture.resolution));
     };
 
+    /* Adjust Window_Base to allocate window contents with a properly sized bitmap.
+     *
+     * This allows window text to be rendered at the monitor's resolution.
+     */
+    root.Window_Base.prototype.createContents = function () {
+        var pixelScaleDiscrepancy = root.SixLoves_Responsive.get_artscale_pixel_ratio();
+        this.contents = new root.Bitmap(this.contentsWidth(), this.contentsHeight(), pixelScaleDiscrepancy);
+        this.resetFontSettings();
+    };
+
     /* Update Window_Selectable with frame-adaptive code.
      */
     root.Window_Selectable.prototype.update = function (frameCount) {
