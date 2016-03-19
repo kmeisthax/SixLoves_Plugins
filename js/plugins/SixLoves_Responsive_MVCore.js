@@ -1274,7 +1274,15 @@ this.SixLoves_Responsive_MVCore = this.SixLoves_Responsive_MVCore || {};
 
         if (this._fadeInDuration > 0) {
             var d = this._fadeInDuration;
-            this._brightness = (this._brightness * (d - frameCount) + 255) / d;
+
+            // == CONFUSING MATH EXPLANATION ==
+            //This and the above function use a little "micro LERP hack" for
+            //code golfing reasons. It's fairly easy to adapt for adaptive
+            //framerate when you are counting down. When you are counting up,
+            //however, the formula doesn't work. So instead we just invert the
+            //input and the output because we know counting down works better
+            //than counting up.
+            this._brightness = (255 - ((255 - this._brightness) * (d - frameCount)) / d);
             this._fadeInDuration = Math.max(this._fadeInDuration - frameCount, 0);
         }
 
@@ -1293,7 +1301,9 @@ this.SixLoves_Responsive_MVCore = this.SixLoves_Responsive_MVCore || {};
         if (this._toneDuration > 0) {
             d = this._toneDuration;
             for (i = 0; i < 4; i += 1) {
-                this._tone[i] = (this._tone[i] * (d - frameCount) + this._toneTarget[i]) / d;
+                //We do the same thing here: count down to our target using
+                //multiple confusing inversions. Or eversions. Or cocoron.
+                this._tone[i] = this._toneTarget[i] - (((this._toneTarget[i] - this._tone[i]) * (d - frameCount)) / d);
             }
             this._toneDuration = Math.max(this._toneDuration - frameCount, 0);
         }
@@ -1359,7 +1369,7 @@ this.SixLoves_Responsive_MVCore = this.SixLoves_Responsive_MVCore || {};
         if (this._zoomDuration > 0) {
             d = this._zoomDuration;
             t = this._zoomScaleTarget;
-            this._zoomScale = (this._zoomScale * (d - frameCount) + t) / d;
+            this._zoomScale = t - (((t - this._zoomScale) * (d - frameCount)) / d);
             this._zoomDuration = Math.max(this._zoomDuration - frameCount, 0);
         }
 
@@ -1378,7 +1388,7 @@ this.SixLoves_Responsive_MVCore = this.SixLoves_Responsive_MVCore || {};
         if (this._weatherDuration > 0) {
             d = this._weatherDuration;
             t = this._weatherPowerTarget;
-            this._weatherPower = (this._weatherPower * (d - frameCount) + t) / d;
+            this._weatherPower = t - (((t - this._weatherPower) * (d - frameCount)) / d);
             this._weatherDuration = Math.max(this._weatherDuration - frameCount, 0);
             if (this._weatherDuration === 0 && this._weatherPowerTarget === 0) {
                 this._weatherType = 'none';
