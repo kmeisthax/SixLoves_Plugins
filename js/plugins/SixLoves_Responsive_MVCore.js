@@ -648,6 +648,17 @@ this.SixLoves_Responsive_MVCore = this.SixLoves_Responsive_MVCore || {};
         };
     }(root.Scene_Title.prototype.centerSprite));
 
+    /* Patch Scene_Title to create a high-resolution game title. */
+    root.Scene_Title.prototype.createForeground = function () {
+        var pixel_ratio = Math.ceil(root.SixLoves_Responsive.get_artscale_pixel_ratio());
+
+        this._gameTitleSprite = new root.Sprite(new root.Bitmap(root.Graphics.width, root.Graphics.height, pixel_ratio));
+        this.addChild(this._gameTitleSprite);
+        if (root.$dataSystem.optDrawTitle) {
+            this.drawGameTitle();
+        }
+    };
+
     /* == SPECIAL-PURPOSE IMPLEMENTATIONS: MENU SCREEN == */
 
     /* Reposition the Gold window when needed
