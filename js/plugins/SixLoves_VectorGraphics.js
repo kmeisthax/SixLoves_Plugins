@@ -69,7 +69,7 @@ this.SixLoves_VectorGraphics = this.SixLoves_VectorGraphics || {};
         resolutionTiers = resolutionTiersString.split(",");
 
     if (root.SixLoves_Responsive === undefined ||
-        root.SixLoves_Responsive.status !== "loaded") {
+            root.SixLoves_Responsive.status !== "loaded") {
         console.err("SixLoves_Responsive not present. HD asset support not installed.");
         module.status = "dependency missing";
         return;
@@ -106,13 +106,18 @@ this.SixLoves_VectorGraphics = this.SixLoves_VectorGraphics || {};
                 resolutionTiers[i] = Number(resolutionTiers[i]);
             }
         }
+
+        //Always check for 1x images, for compatibility.
+        if (resolutionTiers.indexOf(1) === -1) {
+            resolutionTiers.push(1.0);
+        }
     }());
 
     /* Given a screen resolution, sorts the list of tiers in order of how we
      * should look for them.
      */
     function createTierOrder(resolutionTarget) {
-        function sortOrder(x,y) {
+        function sortOrder(x, y) {
             if (x === "svg") {
                 return -Infinity;
             }
@@ -149,134 +154,132 @@ this.SixLoves_VectorGraphics = this.SixLoves_VectorGraphics || {};
         return resolutionTiers.concat().sort(sortOrder);
     }
 
-    /* Given a bitmap, find a better quality image and replace the bitmap's
-     * image with it.
-     *
-     * Returns the bitmap. The actual loading happens asynchronously.
+    /* Given a list of tiers and a path, construct a set of viable alternates
+     * for the bitmap.
      */
-    function replaceUntilSatisfied (origPath, hue, bitmap) {
-        var i = 0, hdPath = origPath,
-            apr = root.SixLoves_Responsive.get_artscale_pixel_ratio(),
-            sortedTiers = createTierOrder(apr);
+    function tiersToAlternates(origPath, tiers) {
+        var i, hdpath, outAlternates = [];
 
-        function replaceAsync() {
-            var hdpath = origPath;
-
-            if (i >= sortedTiers.length) {
-                //Out of tiers.
-                return;
-            }
-
-            //Calculate new path
-            if (sortedTiers[i] === "svg") {
-                hdpath = hdpath.replace(".png", ".svg");
+        for (i = 0; i < tiers.length; i += 1) {
+            if (tiers[i] === "svg") {
+                hdpath = origPath.replace(".png", ".svg");
+            } else if (tiers[i] === 1) {
+                hdpath = origPath;
             } else {
-                hdpath = hdpath.replace("img", "img-" + sortedTiers[i]);
+                hdpath = origPath.replace("img\\", "img-" + tiers[i] + "\\");
             }
 
-            ImageManager.replaceBitmap(bitmap, hdpath, hue, apr, function () {
-                //succ
-            }, function () {
-                i += 1;
-                replaceAsync();
+            outAlternates.push({
+                "resolution": (tiers[i] === "svg" ? null : parseFloat(tiers[i])),
+                "path": hdpath
             });
         }
 
-        replaceAsync();
+        return outAlternates;
     }
 
-    /* Patch the ImageManager to support vector graphics loading and deferred
-     * rendering.
+    /* Patch ImageManager to generate an alternates list for Bitmap.load.
      */
-    root.ImageManager.loadBitmap = function (folder, filename, hue, smooth) {
-        if (filename) {
-            var path = folder + encodeURIComponent(filename) + '.png';
-            var bitmap = this.loadNormalBitmap(path, hue || 0);
-            bitmap.smooth = smooth;
-            return bitmap;
-        } else {
-            return this.loadEmptyBitmap();
-        }
-    };
-
     root.ImageManager.loadNormalBitmap = function (path, hue) {
-        var key = path + ':' + hue;
+        var key = path + ':' + hue, i, hdPath, bitmap,
+            apr = root.SixLoves_Responsive.get_artscale_pixel_ratio(),
+            sortedTiers = createTierOrder(apr),
+            sortedPaths = tiersToAlternates(path, sortedTiers);
+
         if (!this._cache[key]) {
-            var bitmap = Bitmap.load(path);
-            bitmap.addLoadListener(function() {
+            bitmap = root.Bitmap.load(path, sortedPaths);
+
+            bitmap.addLoadListener(function () {
                 bitmap.rotateHue(hue);
-                replaceUntilSatisfied(path, hue, bitmap);
             });
             this._cache[key] = bitmap;
         }
         return this._cache[key];
     };
 
-    /* Replace a bitmap with a suggested higher-resolution version if available
+    /* Patch Bitmap.load to allow multiple "alternate versions" of the same
+     * image file.
      *
-     * This function returns the same bitmap that was passed in. A second
-     * image is loaded from the suggested hdpath. If the new image loads
-     * successfully, the old one's base texture is quietly replaced with the
-     * new version.
+     * Alternates are possible higher-resolution versions of the same bitmap.
+     * The alternates list is a list of objects like so:
      *
-     * This function assumes the bitmap had a source _image that was loaded in.
-     * Bitmaps not loaded with Bitmap.load are not compatible with this
-     * function.
+     *      {
+     *          "resolution": null,
+     *          "path": "img/characters/Flowey.svg"
+     *      }, {
+     *          "resolution": 2.0,
+     *          "path": "img-2x/characters/Flowey.png"
+     *      }, {
+     *          "resolution": 1.0,
+     *          "path": "img/characters/Flowey.png"
+     *      }
      *
-     * hue allows you to tint the bitmap like the loadNormalBitmap function
-     * does.
+     * Each alternate will be tried and loaded in order. The url parameter is
+     * retained as a legacy feature and will be parsed as a single 1.0x
+     * alternate.
      *
-     * targetRes indicates the target pixel ratio you want to render to. It is
-     * not a guarantee of what the replaced texture's resolution will be; only
-     * what you intended. If your replacement image is a bitmap, the resolution
-     * will be calculated by finding the size increase from the original
-     * image's size and resolution. If you use a vector image, however, the
-     * returned image is guaranteed to be rendered at the target resolution.
-     *
-     * onsucc and onfail, if provided, are functions called when the replace
-     * operation succeeds or fails, respectively. You can use onfail to find
-     * another compatible image or onsucc to do something else like force a
-     * redraw.
+     * In this mode we also keep track of failures in case another set of
+     * alternates are proposed.
      */
-    root.ImageManager.replaceBitmap = function (bitmap, hdpath, hue, targetRes, onsucc, onfail) {
-        var img = new Image(),
-            isVectorReplacement = hdpath.indexOf(".svg") !== -1,
-            oldWidth = bitmap._baseTexture.width,
-            oldHeight = bitmap._baseTexture.height,
-            oldRes = bitmap._baseTexture.resolution;
+    root.Bitmap.load = function (url, alternates) {
+        var bitmap = new root.Bitmap();
 
-        img.src = hdpath;
-        img.onerror = onfail;
-        img.onload = function () {
-            var newResolution = img.width / oldWidth / oldRes;
+        bitmap.__SLVG_alternates = alternates;
+        bitmap.__SLVG_failures = [];
+        bitmap.__SLVG_current = 0;
 
-            console.log(img.width);
-            console.log(bitmap.width);
-            console.log(bitmap._baseTexture.width);
+        bitmap._image = new root.Image();
+        bitmap._image.src = bitmap.__SLVG_alternates[bitmap.__SLVG_current].path;
+        bitmap._image.onload = root.Bitmap.prototype._onLoad.bind(bitmap);
+        bitmap._image.onerror = root.Bitmap.prototype._onError.bind(bitmap);
 
-            console.log(isVectorReplacement);
-
-            if (isVectorReplacement) {
-                //SVGs always report width/height in CSS units
-                bitmap.resize(img.width, img.height, targetRes);
-            } else {
-                bitmap.resize(img.width / newResolution, img.height / newResolution, newResolution);
-            }
-
-            console.log(img.width);
-            console.log(bitmap.width);
-            console.log(bitmap._baseTexture.width);
-
-            bitmap._context.drawImage(img, 0, 0, img.width, img.height);
-            bitmap._setDirty();
-
-            onsucc(bitmap, img);
-        };
-
-        img.onfail = onfail.bind(undefined, bitmap, img);
-
+        //We lie about the URL here.
+        bitmap._url = url;
+        bitmap._isLoading = true;
         return bitmap;
-    }
+    };
+
+    /* Patch onLoad so that it knows what to do with an SVG.
+     */
+    root.Bitmap.prototype._onLoad = function () {
+        var targetResolution, sw, sh,
+            resolution = this.__SLVG_alternates[this.__SLVG_current].resolution;
+
+        //SVGs always render at the output resolution
+        targetResolution = resolution;
+        if (targetResolution === null) {
+            targetResolution = root.SixLoves_Responsive.get_artscale_pixel_ratio();
+            sw = this._image.width;
+            sh = this._image.height;
+        } else {
+            sw = this._image.width / targetResolution;
+            sh = this._image.height / targetResolution;
+        }
+
+        this._isLoading = false;
+        this.resize(sw, sh, targetResolution);
+        this._context.drawImage(this._image, 0, 0);
+        this._setDirty();
+        this._callLoadListeners();
+    };
+
+    /* Patch onError so that it knows to try the next alternate before giving
+     * up.
+     */
+    root.Bitmap.prototype._onError = function () {
+        if (this.__SLVG_current < (this.__SLVG_alternates.length - 1)) {
+            //We still have alternates, so schedule them!
+            this.__SLVG_current += 1;
+
+            this._image = new root.Image();
+            this._image.src = this.__SLVG_alternates[this.__SLVG_current].path;
+            this._image.onload = root.Bitmap.prototype._onLoad.bind(this);
+            this._image.onerror = root.Bitmap.prototype._onError.bind(this);
+        } else {
+            //Give up, we're broken.
+            this._hasError = true;
+        }
+    };
 
     module.status = "loaded";
     module.version = "0.3.0";
