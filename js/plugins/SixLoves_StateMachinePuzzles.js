@@ -131,4 +131,7 @@ window.SixLoves_StateMachinePuzzles = window.SixLoves_StateMachinePuzzles || {};
     module.get_current_state_machine = function () {
         return current_state_machine;
     };
+
+    module.status = "loaded";
+    module.version = "0.3.0";
 }(window, window.SixLoves_StateMachinePuzzles));

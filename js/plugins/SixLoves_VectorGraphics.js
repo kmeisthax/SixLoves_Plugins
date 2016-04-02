@@ -3,7 +3,7 @@
 
 /*:
  * @author David Wendt (fantranslation.org)
- * @plugindesc Allows loading of high-res and vector graphics. v0.2.3
+ * @plugindesc Allows loading of high-res and vector graphics. v0.3.0
  *
  * @param ResolutionTiers
  * @desc Comma-separated list of resolution tiers to search for.

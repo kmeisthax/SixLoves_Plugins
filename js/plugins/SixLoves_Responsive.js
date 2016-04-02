@@ -3,7 +3,7 @@
 
 /*:
  * @author David Wendt (fantranslation.org)
- * @plugindesc Makes your game responsive. v0.2.3
+ * @plugindesc Makes your game responsive. v0.3.0
  * 
  * @param ArtScale
  * @desc The intended scale of your art assets. (RPG Maker MV default: 1.5)

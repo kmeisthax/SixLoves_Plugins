@@ -207,4 +207,7 @@ window.SixLoves_MagicSquarePuzzles = window.SixLoves_MagicSquarePuzzles || {};
 
     module.Game_MagicSquare = Game_MagicSquare;
     module.$gameMagicSquare = new Game_MagicSquare();
+
+    module.status = "loaded";
+    module.version = "0.3.0";
 }(window, window.SixLoves_StateMachinePuzzles));
