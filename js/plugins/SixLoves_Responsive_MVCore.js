@@ -2128,6 +2128,8 @@ this.SixLoves_Responsive_MVCore = this.SixLoves_Responsive_MVCore || {};
         return frameCount;
     };
     
+    root.Spriteset_Battle.prototype.update.frame_adaptive = true;
+
     /* Spriteset_Battle creates a tiling sprite to render the battle backgrounds
      * which IMHO is the wrong choice: none of the battle backgrounds available
      * are tileable.
@@ -2171,8 +2173,8 @@ this.SixLoves_Responsive_MVCore = this.SixLoves_Responsive_MVCore || {};
         sprite.setFrame(0, 0, width, height);
         sprite.position.x = x;
         sprite.position.y = y;
-        sprite.scale.x = zoomFactor;
-        sprite.scale.y = zoomFactor;
+        sprite.scale.x = Math.max(zoomFactor, 1.0);
+        sprite.scale.y = Math.max(zoomFactor, 1.0);
     }
     
     /* Also, we have to patch this as Sprite is adjusted differently from
