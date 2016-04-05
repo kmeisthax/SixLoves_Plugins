@@ -100,32 +100,32 @@ void main(void) {\
 
     Object.defineProperty(SinWaveFilter.prototype, 'shift', {
         get: function () { return this.uniforms.shift.value; },
-        set: function (val) { this.uniforms.shift.value = val; }
+        set: function (val) { this.uniforms.shift.value = val; this.dirty = true; }
     });
 
     Object.defineProperty(SinWaveFilter.prototype, 'periodicity', {
         get: function () { return this.uniforms.periodicity.value; },
-        set: function (val) { this.uniforms.periodicity.value = val; }
+        set: function (val) { this.uniforms.periodicity.value = val; this.dirty = true; }
     });
 
     Object.defineProperty(SinWaveFilter.prototype, 'directionX', {
         get: function () { return this.uniforms.strength.value[0]; },
-        set: function (val) { this.uniforms.strength.value[0] = val; }
+        set: function (val) { this.uniforms.strength.value[0] = val; this.dirty = true; }
     });
 
     Object.defineProperty(SinWaveFilter.prototype, 'directionY', {
         get: function () { return this.uniforms.strength.value[1]; },
-        set: function (val) { this.uniforms.strength.value[1] = val; }
+        set: function (val) { this.uniforms.strength.value[1] = val; this.dirty = true; }
     });
 
     Object.defineProperty(SinWaveFilter.prototype, 'displacementX', {
         get: function () { return this.uniforms.strength.value[2]; },
-        set: function (val) { this.uniforms.strength.value[2] = val; }
+        set: function (val) { this.uniforms.strength.value[2] = val; this.dirty = true; }
     });
 
     Object.defineProperty(SinWaveFilter.prototype, 'displacementY', {
         get: function () { return this.uniforms.strength.value[3]; },
-        set: function (val) { this.uniforms.strength.value[3] = val; }
+        set: function (val) { this.uniforms.strength.value[3] = val; this.dirty = true; }
     });
 
     /**
@@ -204,32 +204,32 @@ void main(void) {\
 
     Object.defineProperty(PaletteShiftFilter.prototype, 'colorA', {
         get: function () { return this.uniforms.colorA.value; },
-        set: function (val) { this.uniforms.colorA.value = val; }
+        set: function (val) { this.uniforms.colorA.value = val; this.dirty = true; }
     });
 
     Object.defineProperty(PaletteShiftFilter.prototype, 'colorB', {
         get: function () { return this.uniforms.colorB.value; },
-        set: function (val) { this.uniforms.colorB.value = val; }
+        set: function (val) { this.uniforms.colorB.value = val; this.dirty = true; }
     });
 
     Object.defineProperty(PaletteShiftFilter.prototype, 'colorC', {
         get: function () { return this.uniforms.colorC.value; },
-        set: function (val) { this.uniforms.colorC.value = val; }
+        set: function (val) { this.uniforms.colorC.value = val; this.dirty = true; }
     });
 
     Object.defineProperty(PaletteShiftFilter.prototype, 'colorD', {
         get: function () { return this.uniforms.colorD.value; },
-        set: function (val) { this.uniforms.colorD.value = val; }
+        set: function (val) { this.uniforms.colorD.value = val; this.dirty = true; }
     });
 
     Object.defineProperty(PaletteShiftFilter.prototype, 'tolerance', {
         get: function () { return this.uniforms.tolerance.value; },
-        set: function (val) { this.uniforms.tolerance.value = val; }
+        set: function (val) { this.uniforms.tolerance.value = val; this.dirty = true; }
     });
 
     Object.defineProperty(PaletteShiftFilter.prototype, 'shift', {
         get: function () { return this.uniforms.shift.value; },
-        set: function (val) { this.uniforms.shift.value = val; }
+        set: function (val) { this.uniforms.shift.value = val; this.dirty = true; }
     });
 
     /**
@@ -253,65 +253,209 @@ void main(void) {\
      * The data handed to this function is expected to be an array of zero or
      * more of these effect descriptions.
      *
-     * Returns an array list of filters. Attach it to the filters attribute of
-     * a sprite for a fully featured VideoDrug.
+     * Returns an object containing both the fully constructed filter chain on
+     * the "filters" property as well as an animation controller on
+     * "controller".
      */
     function construct_filter_chain(effect_description) {
-        var i, default_anim, filter, filters = [];
+        var i, k, default_anim, filter, filters = [], controller = new AnimationController();
 
-        for (i = 0; i < effect_description.length; i += 1) {
-            default_anim = effect_description[i]["#default_animation"];
-            filter = new module[effect_description[i]["#type"]];
-            filter.controller.import_animation(effect_description[i][default_anim], default_anim);
+        for (i = 0; i < effect_description.filters.length; i += 1) {
+            default_anim = effect_description.filters[i]["#default_animation"];
+            filter = new module[effect_description.filters[i]["#type"]];
+
+            for (k in effect_description.filters[i]) {
+                if (effect_description.filters[i].hasOwnProperty(k) && k[0] !== "#") {
+                    filter.controller.import_animation(effect_description.filters[i][k], k);
+                }
+            }
+
             filter.controller.transition(default_anim);
             filter.controller.play();
             filters.push(filter);
+
+            controller.import_channels(filter.controller, "stage_" + i);
         }
 
-        return filters;
+        return {
+            filters: filters,
+            controller: controller
+        };
     }
+
+    /* Create our own data manager class.
+     *
+     * This particular DataManager, while patterned like the RPGMaker DataManger
+     * is a bit different. It accepts a directory prefix which is used to
+     * namespace data lookups. It also accepts an indexName parameter which
+     * specifies a data file which must always be loaded.
+     */
+    function DataManager(prefix, indexName) {
+        this.prefix = prefix;
+
+        this.effects = {};
+        this.activeXHRs = 0;
+
+        this.indexName = indexName;
+    }
+
+    /* Load the list of effect data mappings.
+     */
+    DataManager.prototype.loadEffectIndex = function () {
+        var xhr = new XMLHttpRequest(),
+            url = 'data/' + this.prefix + this.indexName;
+        xhr.open('GET', url);
+        xhr.overrideMimeType('application/json');
+        xhr.onload = function() {
+            if (xhr.status < 400) {
+                this.indexData = JSON.parse(xhr.responseText);
+            }
+        }.bind(this);
+
+        xhr.send();
+    };
+
+    /* Load an effect data file.
+     *
+     * Resulting data will be constructed into a filter effect chain and stored
+     * in this.effects for later use. See construct_filter_chain for more info
+     * about how to use the resulting object.
+     */
+    DataManager.prototype.loadEffect = function(name) {
+        var xhr = new XMLHttpRequest(),
+            url = 'data/' + this.prefix + name + ".json";
+        xhr.open('GET', url);
+        xhr.overrideMimeType('application/json');
+        xhr.onload = function() {
+            if (xhr.status < 400) {
+                this.effects[name] = construct_filter_chain(JSON.parse(xhr.responseText));
+            }
+            this.activeXHRs -= 1;
+        }.bind(this);
+
+        xhr.send();
+        this.activeXHRs += 1;
+    };
+
+    DataManager.prototype.isReady = function () {
+        return this.indexData !== undefined;
+    };
+
+    DataManager.prototype.isEffectLoaded = function (name) {
+        return this.effects[name] !== undefined;
+    };
+
+    /* Load effect index on boot.
+     */
+    root.Scene_Boot.prototype.create = (function (old_impl) {
+        return function () {
+            old_impl.apply(this, arguments);
+            module.$dataEffects.loadEffectIndex();
+        }
+    }(root.Scene_Boot.prototype.create));
+
+    /* Block scene until our effect index is loaded.
+     */
+    root.Scene_Boot.prototype.isReady = (function (old_impl) {
+        return function () {
+            return old_impl.apply(this, arguments) && module.$dataEffects.isReady();
+        }
+    }(root.Scene_Boot.prototype.isReady));
+
+    /* Load effect data when battle starts.
+     */
+    root.Scene_Battle.prototype.create = (function (old_impl) {
+        return function () {
+            var bb1Name, bb2Name;
+
+            old_impl.apply(this, arguments);
+
+            bb1Name = this._spriteset.battleback1Name();
+            bb2Name = this._spriteset.battleback2Name();
+
+            this._SixLoves__VideoDrug_back1EffectName = module.$dataEffects.indexData.back1Mapping[bb1Name];
+            this._SixLoves__VideoDrug_back2EffectName = module.$dataEffects.indexData.back2Mapping[bb2Name];
+
+            module.$dataEffects.loadEffect(this._SixLoves__VideoDrug_back1EffectName);
+            module.$dataEffects.loadEffect(this._SixLoves__VideoDrug_back2EffectName);
+        }
+    }(root.Scene_Battle.prototype.create));
+
+    /* Block scene until our effect index is loaded.
+     */
+    root.Scene_Battle.prototype.isReady = (function (old_impl) {
+        return function () {
+            return old_impl.apply(this, arguments) && module.$dataEffects.isReady() && this._spriteset.isReady();
+        }
+    }(root.Scene_Battle.prototype.isReady));
+
+    /* Add an isReady method to Spriteset_Battle.
+     *
+     * This probably isn't the best idea but I need to block loading until we
+     * have our filter descriptions.
+     */
+    root.Spriteset_Battle.prototype.isReady = (function (old_impl) {
+        if (old_impl === undefined) {
+            old_impl = function () {
+                return true;
+            };
+        }
+        return function () {
+            var ready = old_impl.apply(this, arguments),
+                name1 = this._SixLoves__VideoDrug_back1EffectName,
+                name2 = this._SixLoves__VideoDrug_back2EffectName;
+
+            if (name1 !== undefined) {
+                ready = ready && module.$dataEffects.isEffectLoaded(name1);
+            }
+
+            if (name2 !== undefined) {
+                ready = ready && module.$dataEffects.isEffectLoaded(name2);
+            }
+
+            if (ready) {
+                this._SixLoves__VideoDrug_controller = new AnimationController();
+
+                //Another hack: Install the filters at the last possible moment
+                //before updates begin.
+                if (name1 !== undefined) {
+                    this._back1Sprite.filters = module.$dataEffects.effects[name1].filters;
+                    this._SixLoves__VideoDrug_controller.import_channels(module.$dataEffects.effects[name1].controller, "back1");
+                }
+
+                if (name2 !== undefined) {
+                    this._back2Sprite.filters = module.$dataEffects.effects[name2].filters;
+                    this._SixLoves__VideoDrug_controller.import_channels(module.$dataEffects.effects[name2].controller, "back2");
+                }
+
+                this._SixLoves__VideoDrug_controller.transition("idle");
+                this._SixLoves__VideoDrug_controller.play();
+            }
+
+            return ready;
+        }
+    }(root.Spriteset_Battle.prototype.isReady));
 
     /** Create and apply our "Video Drug Filter" on battle back 1.
      */
     root.Spriteset_Battle.prototype.createBattleback = (function (old_impl) {
         return function () {
+            var bb1Name, bb2Name;
             old_impl.apply(this, arguments);
-            this._back1VDrugFilter = new SinWaveFilter();
-            this._back2VDrugFilter = new SinWaveFilter();
-            this._back2VDrugFilter2 = new PaletteShiftFilter();
 
-            //Not composable, but necessary.
-            //PUSHing to this array crashes the game.
-            this._back1Sprite.filters = [this._back1VDrugFilter];
-            this._back2Sprite.filters = [this._back2VDrugFilter, this._back2VDrugFilter2];
+            bb1Name = this.battleback1Name();
+            bb2Name = this.battleback2Name();
 
-            this._back1VDrugFilter.channels.shift.tween(Math.PI * 2, 200, Easings.linear, 0.0);
-            this._back1VDrugFilter.channels.shift.loop = true;
-            this._back1VDrugFilter.channels.periodicity.tween(20, Infinity);
-            this._back1VDrugFilter.channels.directionX.tween(0, Infinity);
-            this._back1VDrugFilter.channels.directionY.tween(1, Infinity);
-            this._back1VDrugFilter.channels.displacementX.tween(0, Infinity);
-            this._back1VDrugFilter.channels.displacementY.tween(8, Infinity);
+            this._SixLoves__VideoDrug_back1EffectName = module.$dataEffects.indexData.back1Mapping[bb1Name];
+            this._SixLoves__VideoDrug_back2EffectName = module.$dataEffects.indexData.back2Mapping[bb2Name];
 
-            this._back2VDrugFilter.channels.shift.tween(Math.PI * 2, 200, Easings.linear, 0.0);
-            this._back2VDrugFilter.channels.shift.loop = true;
-            this._back2VDrugFilter.channels.periodicity.tween(20, Infinity);
-            this._back2VDrugFilter.channels.directionX.tween(0, Infinity);
-            this._back2VDrugFilter.channels.directionY.tween(1, Infinity);
-            this._back2VDrugFilter.channels.displacementX.tween(0, Infinity);
-            this._back2VDrugFilter.channels.displacementY.tween(4, Infinity);
+            if (this._SixLoves__VideoDrug_back1EffectName !== undefined) {
+                module.$dataEffects.loadEffect(this._SixLoves__VideoDrug_back1EffectName);
+            }
 
-            this._back2VDrugFilter2.channels.shift.tween(1.0, 200, Easings.linear, 0.0);
-            this._back2VDrugFilter2.channels.shift.loop = true;
-            this._back2VDrugFilter2.channels.colorA.tween([0.0, 0.0, 0.0, 1.0], Infinity);
-            this._back2VDrugFilter2.channels.colorB.tween([0.0, 1.0, 0.0, 1.0], Infinity);
-            this._back2VDrugFilter2.channels.colorC.tween([0.0, 0.5, 1.0, 1.0], Infinity);
-            this._back2VDrugFilter2.channels.colorD.tween([1.0, 0.5, 0.0, 1.0], Infinity);
-            this._back2VDrugFilter2.channels.tolerance.tween(0.1, Infinity);
-
-            this._back1VDrugFilter.controller.play();
-            this._back2VDrugFilter.controller.play();
-            this._back2VDrugFilter2.controller.play();
+            if (this._SixLoves__VideoDrug_back1EffectName !== undefined) {
+                module.$dataEffects.loadEffect(this._SixLoves__VideoDrug_back2EffectName);
+            }
         };
     }(root.Spriteset_Battle.prototype.createBattleback));
 
@@ -326,14 +470,9 @@ void main(void) {\
         this.updateActors();
         this.updateBattleback();
 
-        frameCount = this._back1VDrugFilter.controller.update(frameCount);
-        this._back1VDrugFilter.dirty = true;
-
-        frameCount = this._back2VDrugFilter.controller.update(frameCount);
-        this._back2VDrugFilter.dirty = true;
-
-        frameCount = this._back2VDrugFilter2.controller.update(frameCount);
-        this._back2VDrugFilter2.dirty = true;
+        if (this._SixLoves__VideoDrug_controller !== undefined) {
+            frameCount = this._SixLoves__VideoDrug_controller.update(frameCount);
+        }
 
         return frameCount;
     };
@@ -342,4 +481,7 @@ void main(void) {\
 
     module.SinWaveFilter = SinWaveFilter;
     module.PaletteShiftFilter = PaletteShiftFilter;
+    module.DataManager = DataManager;
+    module.$dataEffects = new DataManager("SixLoves_VideoDrug/", "EffectList.json");
+    module.construct_filter_chain = construct_filter_chain;
 }(window, window.SixLoves_VideoDrug));
