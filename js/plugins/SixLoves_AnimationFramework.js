@@ -218,7 +218,9 @@ window.SixLoves_AnimationFramework = window.SixLoves_AnimationFramework || {};
      *      [0.0, 120, "linear"],
      *      [5.0, 120, "quadraticIn"],
      *      [-15, 240, "quadraticOut]
-     *    ]
+     *    ],
+     *    constant: 0.0 //If tween data missing, creates a single infinite tween
+     *                  //that effectively sets data constant.
      *  }
      *
      * Animation data is stored in the channel's animation list. To actually
@@ -261,16 +263,20 @@ window.SixLoves_AnimationFramework = window.SixLoves_AnimationFramework || {};
         var i, argv, ease;
 
         this.loop = data.loop;
-        for (i = 0; i < data.tweens.length; i += 1) {
-            argv = data.tweens[i];
-            ease = module.Easings[argv[2]];
+        if (data.tweens !== undefined) {
+            for (i = 0; i < data.tweens.length; i += 1) {
+                argv = data.tweens[i];
+                ease = module.Easings[argv[2]];
 
-            if (argv === 0 && argv.length < 4) {
-                //Fill in the FIRST tween value's start value.
-                this.tween(argv[0], argv[1], ease, data.initial_value);
-            } else {
-                this.tween(argv[0], argv[1], ease, argv[3]);
+                if (argv === 0 && argv.length < 4) {
+                    //Fill in the FIRST tween value's start value.
+                    this.tween(argv[0], argv[1], ease, data.initial_value);
+                } else {
+                    this.tween(argv[0], argv[1], ease, argv[3]);
+                }
             }
+        } else if (data.constant !== undefined) {
+            this.tween(data.constant, Infinity);
         }
     };
 
@@ -288,7 +294,20 @@ window.SixLoves_AnimationFramework = window.SixLoves_AnimationFramework || {};
     AnimationChannel.prototype.transition = function (name, transition_method, transition_time, transition_easing, transition_time_2, transition_easing_2) {
         var tween_state = this.in_tween, last_tween_id = this.tween_stack.length - 1,
             intended_final_value, intended_start_value,
+            data_initial_value,
             data = this.animations[name];
+
+        if (transition_method === undefined) {
+            transition_method = AnimationChannel.TRANSITION_METHOD_IMMEDIATE;
+        }
+
+        if (transition_time === undefined) {
+            transition_time = 0;
+        }
+
+        if (transition_time_2 === undefined) {
+            transition_time_2 = 0;
+        }
 
         if (typeof transition_easing === "string") {
             transition_easing = module.Easings[transition_easing];
@@ -314,22 +333,26 @@ window.SixLoves_AnimationFramework = window.SixLoves_AnimationFramework || {};
             intended_start_value = this.read();
         }
 
+        data_initial_value = data.initial_value;
+        if (data.initial_value === undefined) {
+            data_initial_value = data.constant;
+        }
+
         switch (transition_method) {
         case AnimationChannel.TRANSITION_METHOD_IMMEDIATE:
             this.cancel_animation();
-            this.tween(data.initial_value, transition_time, transition_easing, this.read());
+            this.tween(data_initial_value, transition_time, transition_easing, this.read());
             this.in_tween = tween_state;
             this.next_animation = name;
             break;
         case AnimationChannel.TRANSITION_METHOD_AFTER:
-            this.tween(data.initial_value, transition_time, transition_easing, intended_final_value);
+            this.tween(data_initial_value, transition_time, transition_easing, intended_final_value);
             this.next_animation = name;
             break;
         case AnimationChannel.TRANSITION_METHOD_APPEND:
-            this.tween(data.initial_value, transition_time, transition_easing, intended_final_value);
+            this.tween(data_initial_value, transition_time, transition_easing, intended_final_value);
             this.copy_data_to_stack(data);
             this.tween(intended_start_value, transition_time, transition_easing);
-
             //Since this creates a mixed animation, mix the current names, too.
             this.current_animation = this.current_animation + "," + name;
             break;
@@ -399,20 +422,25 @@ window.SixLoves_AnimationFramework = window.SixLoves_AnimationFramework || {};
                 break;
             }
 
-            tween_data.current_time += this_time;
-            remaining_time -= this_time;
+            if (tween_data.target_time > 0) {
+                tween_data.current_time += this_time;
+                remaining_time -= this_time;
 
-            pct_t = tween_data.current_time / tween_data.target_time;
-            pct_q = tween_data.tween_easing(pct_t);
+                pct_t = tween_data.current_time / tween_data.target_time;
+                pct_q = tween_data.tween_easing(pct_t);
 
-            lerped = this.lerp(tween_data.starting_property_value,
-                               tween_data.target_property_value,
-                               pct_q);
+                lerped = this.lerp(tween_data.starting_property_value,
+                                   tween_data.target_property_value,
+                                   pct_q);
 
-            this.write(lerped);
+                this.write(lerped);
+            } else {
+                //0-length animations need to be special cased because calculus
+                //i.e. isNaN(0/0) === TRUE
+                this.write(tween_data.target_property_value);
+            }
 
             if (tween_data.current_time >= tween_data.target_time) {
-                remaining_time = tween_data.target_time - tween_data.current_time;
                 tween_data.current_time = tween_data.target_time;
                 this.current_tween += 1;
 
@@ -422,10 +450,29 @@ window.SixLoves_AnimationFramework = window.SixLoves_AnimationFramework || {};
                     //framecount.
                     this.on_animation_completed();
                 }
+
+                //Special case: if we have or wind up with a 0-length animation
+                //don't process it more than once per frame to avoid infinite
+                //loops.
+                if (this.animation_length() === 0) {
+                    break;
+                }
             }
         }
 
         return frame_count;
+    };
+
+    /* Calculate the length of the current tween stack.
+     */
+    AnimationChannel.prototype.animation_length = function () {
+        var sum = 0, i;
+
+        for (i = 0; i < this.tween_stack.length; i += 1) {
+            sum += this.tween_stack[i].target_time;
+        }
+
+        return sum;
     };
 
     /**
