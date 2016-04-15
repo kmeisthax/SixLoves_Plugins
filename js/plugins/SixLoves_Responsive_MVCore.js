@@ -26,7 +26,7 @@ this.SixLoves_Responsive_MVCore = this.SixLoves_Responsive_MVCore || {};
 
     if (root.SixLoves_Responsive === undefined) {
         console.err("SixLoves_Responsive not present. Cannot load core patches.");
-        module.status = "not loaded";
+        module.status = "dependency missing";
         return;
     }
 
