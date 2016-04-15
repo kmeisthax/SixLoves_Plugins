@@ -2841,5 +2841,5 @@ this.SixLoves_Responsive_MVCore = this.SixLoves_Responsive_MVCore || {};
     root.Window_DebugRange.prototype.update.frame_adaptive = true;
     
     module.status = "loaded";
-    module.version = "0.3.0";
+    module.version = "0.3.1";
 }(this, this.SixLoves_Responsive_MVCore));

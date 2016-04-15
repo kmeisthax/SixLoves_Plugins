@@ -3,7 +3,7 @@
 
 /*:
  * @author David Wendt (fantranslation.org)
- * @plugindesc Allows loading of high-res and vector graphics. v0.3.0
+ * @plugindesc Allows loading of high-res and vector graphics. v0.3.1
  *
  * @param ResolutionTiers
  * @desc Comma-separated list of resolution tiers to search for.
@@ -298,5 +298,5 @@ this.SixLoves_VectorGraphics = this.SixLoves_VectorGraphics || {};
     };
 
     module.status = "loaded";
-    module.version = "0.3.0";
+    module.version = "0.3.1";
 }(this, this.SixLoves_VectorGraphics));

@@ -3,7 +3,7 @@
 
 /*:
  * @author David Wendt (fantranslation.org)
- * @plugindesc Makes your game responsive. v0.3.0
+ * @plugindesc Makes your game responsive. v0.3.1
  * 
  * @param ArtScale
  * @desc The intended scale of your art assets. (RPG Maker MV default: 1.5)
@@ -928,5 +928,5 @@ this.SixLoves_Responsive = this.SixLoves_Responsive || {};
     module.updateFrameCap = updateFrameCap;
     
     module.status = "loaded";
-    module.version = "0.3.0";
+    module.version = "0.3.1";
 }(this, this.SixLoves_Responsive));
