@@ -3,7 +3,7 @@
 
 /*:
  * @author David Wendt (fantranslation.org)
- * @plugindesc Provides animation helpers.
+ * @plugindesc Provides animation helpers. v0.4.0
  *
  * @help
  *
@@ -694,4 +694,7 @@ window.SixLoves_AnimationFramework = window.SixLoves_AnimationFramework || {};
     module.FBFAnimationChannel = FBFAnimationChannel;
     module.ColorAnimationChannel = ColorAnimationChannel;
     module.AnimationController = AnimationController;
+
+    module.status = "loaded";
+    module.version = "0.4.0";
 }(window, window.SixLoves_AnimationFramework));

@@ -3,7 +3,7 @@
 
 /*:
  * @author David Wendt (fantranslation.org)
- * @plugindesc Provides hblank/copper-style battle backgrounds.
+ * @plugindesc Provides hblank/copper-style battle backgrounds. v0.4.0
  *
  * @help
  *
@@ -22,6 +22,8 @@ window.SixLoves_VideoDrug = window.SixLoves_VideoDrug || {};
 
     if (root.SixLoves_AnimationFramework === undefined) {
         console.error("SixLoves_VideoDrug requires SixLoves_AnimationFramework in order to work. Sorry!");
+        module.status = "dependency missing";
+        return;
     } else {
         Easings = root.SixLoves_AnimationFramework.Easings;
         AnimationChannel = root.SixLoves_AnimationFramework.AnimationChannel;
@@ -484,4 +486,7 @@ void main(void) {\
     module.DataManager = DataManager;
     module.$dataEffects = new DataManager("SixLoves_VideoDrug/", "EffectList.json");
     module.construct_filter_chain = construct_filter_chain;
+
+    module.status = "loaded";
+    module.version = "0.4.0";
 }(window, window.SixLoves_VideoDrug));
