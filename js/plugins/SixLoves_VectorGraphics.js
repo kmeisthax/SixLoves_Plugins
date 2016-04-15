@@ -3,7 +3,7 @@
 
 /*:
  * @author David Wendt (fantranslation.org)
- * @plugindesc Allows loading of high-res and vector graphics. v0.3.0
+ * @plugindesc Allows loading of high-res and vector graphics. v0.4.0
  *
  * @param ResolutionTiers
  * @desc Comma-separated list of resolution tiers to search for.
@@ -75,7 +75,7 @@ this.SixLoves_VectorGraphics = this.SixLoves_VectorGraphics || {};
         return;
     }
 
-    //Version must be 0.3.0 or any higher patch version
+    //Version must be 0.4.0 or any higher patch version
     ResponsiveVer = root.SixLoves_Responsive.version.split(".");
     if (ResponsiveVer[0] !== "0") {
         console.err("SixLoves_Responsive is an incompatible version. Please find an updated one.");
@@ -83,7 +83,7 @@ this.SixLoves_VectorGraphics = this.SixLoves_VectorGraphics || {};
         return;
     }
 
-    if (ResponsiveVer[1] !== "3") {
+    if (ResponsiveVer[1] !== "4") {
         console.err("SixLoves_Responsive is an incompatible version. Please find an updated one.");
         module.status = "dependency missing";
         return;
@@ -298,5 +298,5 @@ this.SixLoves_VectorGraphics = this.SixLoves_VectorGraphics || {};
     };
 
     module.status = "loaded";
-    module.version = "0.3.0";
+    module.version = "0.4.0";
 }(this, this.SixLoves_VectorGraphics));

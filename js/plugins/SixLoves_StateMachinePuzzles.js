@@ -3,7 +3,7 @@
 
 /*:
  * @author David Wendt (fantranslation.org)
- * @plugindesc Adds state machine logic for puzzle solving. v0.3.0
+ * @plugindesc Adds state machine logic for puzzle solving. v0.4.0
  * @help
  *     Ever wanted to have state machine logic for puzzles?
  *     Say, a puzzle where you have to press a certain set of buttons in order,
@@ -133,5 +133,5 @@ window.SixLoves_StateMachinePuzzles = window.SixLoves_StateMachinePuzzles || {};
     };
 
     module.status = "loaded";
-    module.version = "0.3.0";
+    module.version = "0.4.0";
 }(window, window.SixLoves_StateMachinePuzzles));

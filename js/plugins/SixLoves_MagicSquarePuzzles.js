@@ -3,7 +3,7 @@
 
 /*:
  * @author David Wendt (fantranslation.org)
- * @plugindesc Adds state machine logic for puzzle solving. v0.3.0
+ * @plugindesc Adds state machine logic for puzzle solving. v0.4.0
  * @help
  *     Implements logic for puzzles where the user must construct a magic
  * square.
@@ -209,5 +209,5 @@ window.SixLoves_MagicSquarePuzzles = window.SixLoves_MagicSquarePuzzles || {};
     module.$gameMagicSquare = new Game_MagicSquare();
 
     module.status = "loaded";
-    module.version = "0.3.0";
+    module.version = "0.4.0";
 }(window, window.SixLoves_StateMachinePuzzles));
