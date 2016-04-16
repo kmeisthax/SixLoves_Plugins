@@ -790,7 +790,7 @@ this.SixLoves_Responsive_MVCore = this.SixLoves_Responsive_MVCore || {};
 
         this.refreshIfNeeded();
         if (sceneActive) {
-            this.updateInterpreter();
+            frameCount = force_frame_adaptive(frameCount, this.updateInterpreter, this);
         }
         frameCount = force_frame_adaptive(frameCount, this.updateScroll, this);
         frameCount = force_frame_adaptive(frameCount, this.updateEvents, this);
@@ -801,6 +801,31 @@ this.SixLoves_Responsive_MVCore = this.SixLoves_Responsive_MVCore || {};
     };
 
     root.Game_Map.prototype.update.frame_adaptive = true;
+
+    /* Yes, we need to pass framerate counts all the way to the interpreter */
+    root.Game_Map.prototype.updateInterpreter = function (frameCount) {
+        if (frameCount === undefined) {
+            frameCount = 1;
+        }
+
+        for (;;) {
+            frameCount = force_frame_adaptive(frameCount, this._interpreter.update, this._interpreter);
+            if (this._interpreter.isRunning()) {
+                return frameCount;
+            }
+            if (this._interpreter.eventId() > 0) {
+                this.unlockEvent(this._interpreter.eventId());
+                this._interpreter.clear();
+            }
+            if (!this.setupStartingEvent()) {
+                return frameCount;
+            }
+        }
+
+        return frameCount;
+    };
+
+    root.Game_Map.prototype.updateInterpreter.frame_adaptive = true;
 
     /* SCREEN SCROLLING AT TOTALBISCUIT-COMPLIANT FRAMERATES WOO
      */
@@ -1436,6 +1461,92 @@ this.SixLoves_Responsive_MVCore = this.SixLoves_Responsive_MVCore || {};
     };
 
     root.Game_Screen.prototype.updatePictures.frame_adaptive = true;
+
+    root.Game_Troop.prototype.updateInterpreter = function() {
+        if (frameCount === undefined) {
+            frameCount = 1;
+        }
+
+        frameCount = force_frame_adaptive(frameCount, this._interpreter.update, this._interpreter);
+
+        return frameCount;
+    };
+
+    root.Game_Troop.prototype.updateInterpreter.frame_adaptive = true;
+
+    root.Game_Interpreter.prototype.update = function (frameCount) {
+        if (frameCount === undefined) {
+            frameCount = 1;
+        }
+
+        while (this.isRunning()) {
+            if (this.updateChild(frameCount) || this.updateWait(frameCount)) {
+                break;
+            }
+            if (SceneManager.isSceneChanging()) {
+                break;
+            }
+            if (!this.executeCommand()) {
+                break;
+            }
+            if (this.checkFreeze()) {
+                break;
+            }
+        }
+    };
+
+    root.Game_Interpreter.prototype.update.frame_adaptive = true;
+
+    /* This update function cannot be forced frame adaptive as it is expected
+     * to return a value.
+     */
+    root.Game_Interpreter.prototype.updateChild = function (frameCount) {
+        if (frameCount === undefined) {
+            frameCount = 1;
+        }
+
+        if (this._childInterpreter) {
+            frameCount = force_frame_adaptive(frameCount, this._childInterpreter.update, this._childInterpreter);
+            if (this._childInterpreter.isRunning()) {
+                return true;
+            } else {
+                this._childInterpreter = null;
+            }
+        }
+        return false;
+    };
+
+    root.Game_Interpreter.prototype.updateChild.frame_adaptive = true;
+
+    /* This update function cannot be forced frame adaptive as it is expected
+     * to return a value.
+     */
+    root.Game_Interpreter.prototype.updateWait = function (frameCount) {
+        if (frameCount === undefined) {
+            frameCount = 1;
+        }
+
+        return this.updateWaitCount(frameCount) || this.updateWaitMode();
+    };
+
+    root.Game_Interpreter.prototype.updateWait.frame_adaptive = true;
+
+    /* This update function cannot be forced frame adaptive as it is expected
+     * to return a value.
+     */
+    root.Game_Interpreter.prototype.updateWaitCount = function (frameCount) {
+        if (frameCount === undefined) {
+            frameCount = 1;
+        }
+
+        if (this._waitCount > 0) {
+            this._waitCount -= frameCount;
+            return true;
+        }
+        return false;
+    };
+
+    root.Game_Interpreter.prototype.updateWaitCount.frame_adaptive = true;
 
     root.Weather.prototype.update = function (frameCount) {
         if (frameCount === undefined) {
@@ -2709,24 +2820,7 @@ this.SixLoves_Responsive_MVCore = this.SixLoves_Responsive_MVCore || {};
     };
     
     root.Scene_Battle.prototype.updateBattleProcess.frame_adaptive = true;
-    
-    root.Game_Timer.prototype.update = function (sceneActive, frameCount) {
-        if (frameCount === undefined) {
-            frameCount = 1;
-        }
-        
-        if (sceneActive && this._working && this._frames > 0) {
-            this._frames = Math.max(this._frames - frameCount, 0);
-            if (this._frames === 0) {
-                this.onExpire();
-            }
-        }
-        
-        return frameCount;
-    };
-    
-    root.Game_Timer.prototype.update.frame_adaptive = true;
-    
+
     /* == SPECIAL PURPOSE IMPLEMENTATIONS: Debug menu == */
     root.Window_DebugRange.prototype.update = function (frameCount) {
         if (frameCount === undefined) {

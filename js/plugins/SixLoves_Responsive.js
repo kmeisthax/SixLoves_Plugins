@@ -255,6 +255,15 @@ this.SixLoves_Responsive = this.SixLoves_Responsive || {};
         return an_object.constructor.name;
     }
 
+    /* Trip the debugger.
+     *
+     * V8's optimizing compiler refuses to touch functions with debugger calls
+     * in them, supposedly.
+     */
+    function debug() {
+        debugger;
+    }
+
     /* == FRAME-RATE ADAPTIVE GAME LOGIC == */
 
     /* Helper function that repeatedly executes an update callback to emulate
@@ -278,7 +287,7 @@ this.SixLoves_Responsive = this.SixLoves_Responsive || {};
             return framesExecuted;
         } else {
             if (debugBreakOnNonAdaptive) {
-                debugger;
+                debug();
             }
 
             if (nonAdaptive.indexOf(name_of(updateThis)) === -1) {
@@ -302,6 +311,22 @@ this.SixLoves_Responsive = this.SixLoves_Responsive || {};
      */
     function get_artscale_pixel_ratio() {
         return pixelScaleDiscrepancy;
+    }
+
+    root.SceneManager.__SixLoves_Responsive__safeUpdate = function (frameSkip) {
+        var actualFrameSkip;
+
+        try {
+            this.tickStart();
+
+            actualFrameSkip = force_frame_adaptive(frameSkip, this.updateMain, this);
+
+            this.tickEnd();
+        } catch (e) {
+            this.catchException(e);
+        }
+
+        return actualFrameSkip;
     }
 
     /* Code which adjusts the gameloop to run at the same physical speed
@@ -339,17 +364,9 @@ this.SixLoves_Responsive = this.SixLoves_Responsive || {};
             frameSkip = designFPS / debugFPS;
         }
 
-        try {
-            this.tickStart();
-            //Removed in RPG MV 1.1
-            //this.updateInputData();
-
-            actualFrameSkip = force_frame_adaptive(frameSkip, this.updateMain, this);
-
-            this.tickEnd();
-        } catch (e) {
-            this.catchException(e);
-        }
+        //Separated out to a separate function to reduce the amount of code
+        //that the optimizer does not touch
+        actualFrameSkip = this.__SixLoves_Responsive__safeUpdate(frameSkip);
 
         if (nonAdaptive.length > 0 && debugLogMessages) {
             console.warn("Please update classes " + nonAdaptive.join(", ") + " to support frame adaptive code.");
