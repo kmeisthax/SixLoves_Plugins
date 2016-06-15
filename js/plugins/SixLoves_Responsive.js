@@ -716,11 +716,9 @@ this.SixLoves_Responsive = this.SixLoves_Responsive || {};
 
     };
 
-    /**
-    * Removes the last filter from the filter stack and doesn't return it.
-    *
-    * @method popFilter
-    */
+    /* Patched popfilter method that properly takes target resolution into
+     * account when rendering filters.
+     */
     root.PIXI.WebGLFilterManager.prototype.popFilter = function() {
         var gl = this.gl;
         var filterBlock = this.filterStack.pop();
@@ -736,15 +734,15 @@ this.SixLoves_Responsive = this.SixLoves_Responsive || {};
             gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
 
             this.vertexArray[0] = 0;
-            this.vertexArray[1] = filterArea.height * this.renderSession.resolution;
+            this.vertexArray[1] = filterArea.height;
 
-            this.vertexArray[2] = filterArea.width * this.renderSession.resolution;
-            this.vertexArray[3] = filterArea.height * this.renderSession.resolution;
+            this.vertexArray[2] = filterArea.width;
+            this.vertexArray[3] = filterArea.height;
 
             this.vertexArray[4] = 0;
             this.vertexArray[5] = 0;
 
-            this.vertexArray[6] = filterArea.width * this.renderSession.resolution;
+            this.vertexArray[6] = filterArea.width;
             this.vertexArray[7] = 0;
 
             gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.vertexArray);
@@ -781,7 +779,7 @@ this.SixLoves_Responsive = this.SixLoves_Responsive || {};
 
                 // draw texture..
                 //filterPass.applyFilterPass(filterArea.width, filterArea.height);
-                this.applyFilterPass(filterPass, filterArea, filterArea.width * this.renderSession.resolution, filterArea.height * this.renderSession.resolution);
+                this.applyFilterPass(filterPass, filterArea, filterArea.width, filterArea.height);
 
                 // swap the textures..
                 var temp = inputTexture;
@@ -892,6 +890,58 @@ this.SixLoves_Responsive = this.SixLoves_Responsive || {};
         filterBlock._glFilterTexture = null;
     };
 
+    /* Render textures can have a different resolution from the main framebuffer
+     * so let's patch RenderTexture to overwrite and restore the default res.
+     */
+    PIXI.RenderTexture.prototype.renderWebGL = function(displayObject, matrix, clear) {
+        var defaultR, defaultRSR;
+
+        if(!this.valid)return;
+        //TOOD replace position with matrix..
+
+        //Lets create a nice matrix to apply to our display object. Frame buffers come in upside down so we need to flip the matrix
+        var wt = displayObject.worldTransform;
+        wt.identity();
+        wt.translate(0, this.projection.y * 2);
+        if(matrix)wt.append(matrix);
+        wt.scale(1,-1);
+
+        // setWorld Alpha to ensure that the object is renderer at full opacity
+        displayObject.worldAlpha = 1;
+
+        // Time to update all the children of the displayObject with the new matrix..
+        var children = displayObject.children;
+
+        for(var i=0,j=children.length; i<j; i++)
+        {
+            children[i].updateTransform();
+        }
+
+        // time for the webGL fun stuff!
+        var gl = this.renderer.gl;
+
+        gl.viewport(0, 0, this.width * this.resolution, this.height * this.resolution);
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.textureBuffer.frameBuffer );
+
+        if(clear)this.textureBuffer.clear();
+
+        this.renderer.spriteBatch.dirty = true;
+
+        defaultR = this.renderer.resolution;
+        defaultRSR = this.renderer.renderSession.resolution;
+
+        this.renderer.resolution = this.resolution;
+        this.renderer.renderSession.resolution = this.resolution;
+
+        this.renderer.renderDisplayObject(displayObject, this.projection, this.textureBuffer.frameBuffer);
+
+        this.renderer.resolution = defaultR;
+        this.renderer.renderSession.resolution = defaultRSR;
+
+        this.renderer.spriteBatch.dirty = true;
+    };
+
     root.PIXI.DisplayObjectContainer.prototype.layout = function () {
         layout_all(this.children);
     };
@@ -936,6 +986,43 @@ this.SixLoves_Responsive = this.SixLoves_Responsive || {};
             this._renderer.renderSession.resolution = psd;
             this._renderer.resize(this._width, this._height);
         }
+    };
+
+    /* glRenderbufferStorage leaks memory on a Macbook Air with an HD4000 iGPU
+     * on OSX. Fix that by recreating the renderbuffer on resize.
+     */
+    root.PIXI.FilterTexture.prototype.resize = function(width, height) {
+        if(this.width === width && this.height === height) return;
+
+        this.width = width;
+        this.height = height;
+
+        var gl = this.gl;
+
+        gl.bindTexture(gl.TEXTURE_2D,  this.texture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA,  width , height , 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+
+        //Explicitly delete and recreate the renderbuffer.
+        gl.deleteRenderbuffer(this.renderBuffer);
+        this.renderBuffer = gl.createRenderbuffer();
+
+        // update the stencil buffer width and height
+        gl.bindRenderbuffer(gl.RENDERBUFFER, this.renderBuffer);
+        gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_STENCIL, width , height );
+    };
+
+    /**
+     * Oh, and actually delete our renderbuffer here as well.
+     * No seriously, why have a destroy method that doesn't destroy shit?
+     */
+    root.PIXI.FilterTexture.prototype.destroy = function() {
+        var gl = this.gl;
+        gl.deleteFramebuffer( this.frameBuffer );
+        gl.deleteTexture( this.texture );
+        gl.deleteRenderbuffer(this.renderBuffer);
+
+        this.frameBuffer = null;
+        this.texture = null;
     };
 
     module.layout_all = layout_all;
