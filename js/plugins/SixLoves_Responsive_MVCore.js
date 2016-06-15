@@ -540,6 +540,20 @@ this.SixLoves_Responsive_MVCore = this.SixLoves_Responsive_MVCore || {};
         this.resetFontSettings();
     };
 
+    /* Make the HP/MP bars extend to the edge of the area.
+     */
+    root.Window_Base.prototype.drawActorSimpleStatus = function(actor, x, y, width) {
+        var lineHeight = this.lineHeight();
+        var width2 = Math.max(200, (width - this.textPadding()) / 2);
+        var xLast = x + width - width2;
+        this.drawActorName(actor, x, y);
+        this.drawActorLevel(actor, x, y + lineHeight * 1);
+        this.drawActorIcons(actor, x, y + lineHeight * 2);
+        this.drawActorClass(actor, xLast, y);
+        this.drawActorHp(actor, xLast, y + lineHeight * 1, width2);
+        this.drawActorMp(actor, xLast, y + lineHeight * 2, width2);
+    };
+
     /* Update Window_Selectable with frame-adaptive code.
      */
     root.Window_Selectable.prototype.update = function (frameCount) {
@@ -592,6 +606,15 @@ this.SixLoves_Responsive_MVCore = this.SixLoves_Responsive_MVCore || {};
         }
 
         layout_all(this.children);
+    };
+
+    /* Some windows may need to redraw themselves after layout.
+     * We can confidently redraw all Window_Selectables.
+     */
+    root.Window_Selectable.prototype.layout = function () {
+        root.Window_Base.prototype.layout.apply(this, arguments);
+        this.createContents();
+        this.drawAllItems();
     };
 
     /* Ensure screen-filling sprites actually, y'know, fill the screen.
@@ -679,6 +702,18 @@ this.SixLoves_Responsive_MVCore = this.SixLoves_Responsive_MVCore || {};
         }
 
         root.Scene_MenuBase.prototype.layout.call(this);
+    };
+
+    Window_MenuStatus.MINIMUM_WIDTH = 600;
+
+    /* Add a minimum width to the menu screen.
+     */
+    Window_MenuStatus.prototype.windowWidth = function() {
+        if (Graphics.boxWidth < (Window_MenuStatus.MINIMUM_WIDTH + 240)) {
+            return Window_MenuStatus.MINIMUM_WIDTH;
+        } else {
+            return Graphics.boxWidth - 240;
+        }
     };
 
     /* == SPECIAL-PURPOSE IMPLEMENTATIONS: MAP SCREEN == */
@@ -1462,7 +1497,7 @@ this.SixLoves_Responsive_MVCore = this.SixLoves_Responsive_MVCore || {};
 
     root.Game_Screen.prototype.updatePictures.frame_adaptive = true;
 
-    root.Game_Troop.prototype.updateInterpreter = function() {
+    root.Game_Troop.prototype.updateInterpreter = function (frameCount) {
         if (frameCount === undefined) {
             frameCount = 1;
         }
