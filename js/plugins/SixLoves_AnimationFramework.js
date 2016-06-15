@@ -277,6 +277,10 @@ window.SixLoves_AnimationFramework = window.SixLoves_AnimationFramework || {};
             }
         } else if (data.constant !== undefined) {
             this.tween(data.constant, Infinity);
+        } else if (data.constructor !== Object) {
+            //Variable "data" doesn't match our format
+            //Assume it's constant data instead
+            this.tween(data, Infinity);
         }
     };
 
