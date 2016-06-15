@@ -45,7 +45,7 @@ window.SixLoves_VideoDrug = window.SixLoves_VideoDrug || {};
      * a per-pixel basis according to a set of parameters. This effectively
      * emulates hblank effects.
      */
-    function SinWaveFilter() {
+    function SineDispFilter() {
         root.PIXI.AbstractFilter.call(this);
 
         this.passes = [this];
@@ -80,7 +80,8 @@ void main(void) {\
     vec2 newCoord = vTextureCoord * dimensions.xy;\
     float normalizedPos = dot(newCoord.xy, strength.xy) / periodicity;\
     vec2 displacement = sin(normalizedPos + shift) * strength.zw;\
-    gl_FragColor = texture2D(uSampler, (newCoord + displacement) / dimensions.xy);\
+    vec2 displaced = clamp((newCoord + displacement) / dimensions.xy, vec2(0,0), vec2(1,1));\
+    gl_FragColor = texture2D(uSampler, displaced);\
 }"
         ];
 
@@ -97,35 +98,142 @@ void main(void) {\
         this.controller.import_channels(this);
     }
 
-    SinWaveFilter.prototype = Object.create(root.PIXI.AbstractFilter.prototype);
-    SinWaveFilter.prototype.constructor = SinWaveFilter;
+    SineDispFilter.prototype = Object.create(root.PIXI.AbstractFilter.prototype);
+    SineDispFilter.prototype.constructor = SineDispFilter;
 
-    Object.defineProperty(SinWaveFilter.prototype, 'shift', {
+    Object.defineProperty(SineDispFilter.prototype, 'shift', {
         get: function () { return this.uniforms.shift.value; },
         set: function (val) { this.uniforms.shift.value = val; this.dirty = true; }
     });
 
-    Object.defineProperty(SinWaveFilter.prototype, 'periodicity', {
+    Object.defineProperty(SineDispFilter.prototype, 'periodicity', {
         get: function () { return this.uniforms.periodicity.value; },
         set: function (val) { this.uniforms.periodicity.value = val; this.dirty = true; }
     });
 
-    Object.defineProperty(SinWaveFilter.prototype, 'directionX', {
+    Object.defineProperty(SineDispFilter.prototype, 'directionX', {
         get: function () { return this.uniforms.strength.value[0]; },
         set: function (val) { this.uniforms.strength.value[0] = val; this.dirty = true; }
     });
 
-    Object.defineProperty(SinWaveFilter.prototype, 'directionY', {
+    Object.defineProperty(SineDispFilter.prototype, 'directionY', {
         get: function () { return this.uniforms.strength.value[1]; },
         set: function (val) { this.uniforms.strength.value[1] = val; this.dirty = true; }
     });
 
-    Object.defineProperty(SinWaveFilter.prototype, 'displacementX', {
+    Object.defineProperty(SineDispFilter.prototype, 'displacementX', {
         get: function () { return this.uniforms.strength.value[2]; },
         set: function (val) { this.uniforms.strength.value[2] = val; this.dirty = true; }
     });
 
-    Object.defineProperty(SinWaveFilter.prototype, 'displacementY', {
+    Object.defineProperty(SineDispFilter.prototype, 'displacementY', {
+        get: function () { return this.uniforms.strength.value[3]; },
+        set: function (val) { this.uniforms.strength.value[3] = val; this.dirty = true; }
+    });
+
+    /**
+     * Implements a WebGL fragment filter that scales texture coordinates on
+     * a per-pixel basis according to a set of parameters. This effectively
+     * emulates hblank effects with arbitrary affine transforms (Mode 7).
+     */
+    function SineScaleFilter() {
+        root.PIXI.AbstractFilter.call(this);
+
+        this.passes = [this];
+
+        this.uniforms = {
+            dimensions: {type: '4fv', value: [0, 0, 0, 0]}, //width, height, x, y
+            shift: {type: '1f', value: 0.0},
+                //Adjust the resulting wave.
+                //Value in radians, from 0 to Math.PI * 2. Larger or smaller
+                //values are accepted, but wrap to that range.
+            periodicity: {type: '1f', value: 10},
+                //in pixels, determines the length of the wave
+            direction: {type: '2fv', value: [1, 1]},
+                //in pixels, determines the direction the wave moves
+                //parameter names are dirX, dirY
+            strength: {type: '4fv', value: [1, 1, 1, 1]}
+                //in pixels, determines the max sin scale
+                //parameter names are lowX, lowY, hiX, hiY
+                //Scaling will vary from low to high
+        };
+
+        this.fragmentSrc = [
+            "precision mediump float;\
+varying vec2 vTextureCoord;\
+varying vec4 vColor;\
+\
+uniform sampler2D uSampler;\
+uniform float shift;\
+uniform float periodicity;\
+uniform vec4 dimensions;\
+uniform vec2 direction;\
+uniform vec4 strength;\
+\
+void main(void) {\
+    vec2 newCoord = (vTextureCoord - vec2(0.5)) * dimensions.xy;\
+    float normalizedPos = dot(newCoord.xy, direction.xy) / periodicity;\
+    vec2 sine = (sin(normalizedPos + shift) + vec2(1.0)) / vec2(2.0);\
+    vec2 scale = sine * (strength.zw - strength.xy) + strength.xy;\
+    vec2 displaced = (newCoord / scale) / dimensions.xy + vec2(0.5);\
+    gl_FragColor = texture2D(uSampler, displaced);\
+}"
+        ];
+
+        this.channels = {};
+
+        this.channels.shift = new AnimationChannel(this, "shift");
+        this.channels.periodicity = new AnimationChannel(this, "periodicity");
+        this.channels.directionX = new AnimationChannel(this, "directionX");
+        this.channels.directionY = new AnimationChannel(this, "directionY");
+        this.channels.scaleLowX = new AnimationChannel(this, "scaleLowX");
+        this.channels.scaleLowY = new AnimationChannel(this, "scaleLowY");
+        this.channels.scaleHighX = new AnimationChannel(this, "scaleHighX");
+        this.channels.scaleHighY = new AnimationChannel(this, "scaleHighY");
+
+        this.controller = new AnimationController();
+        this.controller.import_channels(this);
+    }
+
+    SineScaleFilter.prototype = Object.create(root.PIXI.AbstractFilter.prototype);
+    SineScaleFilter.prototype.constructor = SineScaleFilter;
+
+    Object.defineProperty(SineScaleFilter.prototype, 'shift', {
+        get: function () { return this.uniforms.shift.value; },
+        set: function (val) { this.uniforms.shift.value = val; this.dirty = true; }
+    });
+
+    Object.defineProperty(SineScaleFilter.prototype, 'periodicity', {
+        get: function () { return this.uniforms.periodicity.value; },
+        set: function (val) { this.uniforms.periodicity.value = val; this.dirty = true; }
+    });
+
+    Object.defineProperty(SineScaleFilter.prototype, 'directionX', {
+        get: function () { return this.uniforms.direction.value[0]; },
+        set: function (val) { this.uniforms.direction.value[0] = val; this.dirty = true; }
+    });
+
+    Object.defineProperty(SineScaleFilter.prototype, 'directionY', {
+        get: function () { return this.uniforms.direction.value[1]; },
+        set: function (val) { this.uniforms.direction.value[1] = val; this.dirty = true; }
+    });
+
+    Object.defineProperty(SineScaleFilter.prototype, 'scaleLowX', {
+        get: function () { return this.uniforms.strength.value[0]; },
+        set: function (val) { this.uniforms.strength.value[0] = val; this.dirty = true; }
+    });
+
+    Object.defineProperty(SineScaleFilter.prototype, 'scaleLowY', {
+        get: function () { return this.uniforms.strength.value[1]; },
+        set: function (val) { this.uniforms.strength.value[1] = val; this.dirty = true; }
+    });
+
+    Object.defineProperty(SineScaleFilter.prototype, 'scaleHighX', {
+        get: function () { return this.uniforms.strength.value[2]; },
+        set: function (val) { this.uniforms.strength.value[2] = val; this.dirty = true; }
+    });
+
+    Object.defineProperty(SineScaleFilter.prototype, 'scaleHighY', {
         get: function () { return this.uniforms.strength.value[3]; },
         set: function (val) { this.uniforms.strength.value[3] = val; this.dirty = true; }
     });
@@ -153,13 +261,15 @@ void main(void) {\
         this.passes = [this];
 
         this.uniforms = {
-            colorA: {type: "4fv", value: [0,0,0,0]},
-            colorB: {type: "4fv", value: [0,0,0,0]},
-            colorC: {type: "4fv", value: [0,0,0,0]},
-            colorD: {type: "4fv", value: [0,0,0,0]},
-            tolerance: {type: "1f", value: 0.5/255},
+            colorA: {type: "4fv", value: [0, 0, 0, 0]},
+            colorB: {type: "4fv", value: [0, 0, 0, 0]},
+            colorC: {type: "4fv", value: [0, 0, 0, 0]},
+            colorD: {type: "4fv", value: [0, 0, 0, 0]},
+            colorE: {type: "4fv", value: [0, 0, 0, 0]},
+            colorDStop: {type: "1f", value: 0.5},
+            tolerance: {type: "1f", value: 0.5 / 255},
             shift: {type: "1f", value: 0},
-        }
+        };
 
         this.fragmentSrc = ["precision mediump float;\
   varying vec2 vTextureCoord;\
@@ -170,6 +280,8 @@ void main(void) {\
   uniform vec4 colorB;\
   uniform vec4 colorC;\
   uniform vec4 colorD;\
+  uniform vec4 colorE;\
+  uniform float colorDStop;\
   uniform float tolerance;\
   uniform float shift;\
   \
@@ -179,12 +291,19 @@ void main(void) {\
       vec4 colorBFromA = colorB - colorA;\
       vec4 projColor = (dot(origColorFromA, colorBFromA) / dot(colorBFromA, colorBFromA)) * colorBFromA;\
       float colDist = distance(origColorFromA, projColor);\
-      float tValue = distance(vec4(0.0), projColor) / distance(vec4(0.0), colorBFromA);\
-      vec4 colorDFromC = colorD - colorC;\
-      vec4 newColor = colorC + colorDFromC * mod(tValue + shift, 1.0);\
-      \
+      float tValue = mod(distance(vec4(0.0), projColor) / distance(vec4(0.0), colorBFromA) + shift, 1.0);\
+      vec4 colorDiff, newColor;\
+      if (tValue < colorDStop) {\
+          tValue = tValue / colorDStop;\
+          colorDiff = colorD - colorC;\
+          newColor = colorC + colorDiff * tValue;\
+      } else {\
+          tValue = (tValue - colorDStop) / (1.0 - colorDStop);\
+          colorDiff = colorE - colorD;\
+          newColor = colorD + colorDiff * tValue;\
+      }\
       if (colDist < tolerance) {\
-          gl_FragColor = newColor;\
+          gl_FragColor = newColor * origColor.a;\
       } else {\
           gl_FragColor = origColor;\
       }\
@@ -197,6 +316,8 @@ void main(void) {\
         this.channels.colorB = new ColorAnimationChannel(this, "colorB");
         this.channels.colorC = new ColorAnimationChannel(this, "colorC");
         this.channels.colorD = new ColorAnimationChannel(this, "colorD");
+        this.channels.colorE = new ColorAnimationChannel(this, "colorE");
+        this.channels.colorDStop = new AnimationChannel(this, "colorDStop");
         this.channels.tolerance = new AnimationChannel(this, "tolerance");
         this.channels.shift = new AnimationChannel(this, "shift");
 
@@ -222,6 +343,16 @@ void main(void) {\
     Object.defineProperty(PaletteShiftFilter.prototype, 'colorD', {
         get: function () { return this.uniforms.colorD.value; },
         set: function (val) { this.uniforms.colorD.value = val; this.dirty = true; }
+    });
+
+    Object.defineProperty(PaletteShiftFilter.prototype, 'colorE', {
+        get: function () { return this.uniforms.colorE.value; },
+        set: function (val) { this.uniforms.colorE.value = val; this.dirty = true; }
+    });
+
+    Object.defineProperty(PaletteShiftFilter.prototype, 'colorDStop', {
+        get: function () { return this.uniforms.colorDStop.value; },
+        set: function (val) { this.uniforms.colorDStop.value = val; this.dirty = true; }
     });
 
     Object.defineProperty(PaletteShiftFilter.prototype, 'tolerance', {
@@ -421,17 +552,20 @@ void main(void) {\
                 //Another hack: Install the filters at the last possible moment
                 //before updates begin.
                 if (name1 !== undefined) {
-                    this._back1Sprite.filters = module.$dataEffects.effects[name1].filters;
+                    this._SixLoves__VideoDrug_back1.innerSprite.filters = module.$dataEffects.effects[name1].filters;
                     this._SixLoves__VideoDrug_controller.import_channels(module.$dataEffects.effects[name1].controller, "back1");
                 }
 
                 if (name2 !== undefined) {
-                    this._back2Sprite.filters = module.$dataEffects.effects[name2].filters;
+                    this._SixLoves__VideoDrug_back2.innerSprite.filters = module.$dataEffects.effects[name2].filters;
                     this._SixLoves__VideoDrug_controller.import_channels(module.$dataEffects.effects[name2].controller, "back2");
                 }
 
                 this._SixLoves__VideoDrug_controller.transition("idle");
                 this._SixLoves__VideoDrug_controller.play();
+
+                //Finally, ensure our render target is sized correctly
+                this.layout();
             }
 
             return ready;
@@ -444,6 +578,34 @@ void main(void) {\
         return function () {
             var bb1Name, bb2Name;
             old_impl.apply(this, arguments);
+
+            //Rip out the battleback images and put them in other sprites.
+            //this._battleField.removeChild(this._back1Sprite);
+            //this._battleField.removeChild(this._back2Sprite);
+
+            this._SixLoves__VideoDrug_back1 = {
+                "rt": new root.PIXI.RenderTexture(this._back1Sprite.bitmap.width, this._back1Sprite.bitmap.height, undefined, undefined, this._back1Sprite.bitmap.resolution)
+            };
+            this._SixLoves__VideoDrug_back1.innerChildSprite = new root.Sprite();
+            this._SixLoves__VideoDrug_back1.innerChildSprite.bitmap = this._back1Sprite.bitmap;
+            this._SixLoves__VideoDrug_back1.innerChildSprite.anchor.x = 0.5;
+            this._SixLoves__VideoDrug_back1.innerChildSprite.anchor.y = 0.5;
+            this._SixLoves__VideoDrug_back1.innerSprite = new root.PIXI.DisplayObjectContainer();
+            this._SixLoves__VideoDrug_back1.innerSprite.addChild(this._SixLoves__VideoDrug_back1.innerChildSprite);
+
+            this._back1Sprite.texture = this._SixLoves__VideoDrug_back1.rt;
+
+            this._SixLoves__VideoDrug_back2 = {
+                "rt": new root.PIXI.RenderTexture(this._back2Sprite.bitmap.width, this._back2Sprite.bitmap.height, undefined, undefined, this._back2Sprite.bitmap.resolution)
+            };
+            this._SixLoves__VideoDrug_back2.innerChildSprite = new root.Sprite();
+            this._SixLoves__VideoDrug_back2.innerChildSprite.bitmap = this._back2Sprite.bitmap;
+            this._SixLoves__VideoDrug_back2.innerChildSprite.anchor.x = 0.5;
+            this._SixLoves__VideoDrug_back2.innerChildSprite.anchor.y = 0.5;
+            this._SixLoves__VideoDrug_back2.innerSprite = new root.PIXI.DisplayObjectContainer();
+            this._SixLoves__VideoDrug_back2.innerSprite.addChild(this._SixLoves__VideoDrug_back2.innerChildSprite);
+
+            this._back2Sprite.texture = this._SixLoves__VideoDrug_back2.rt;
 
             bb1Name = this.battleback1Name();
             bb2Name = this.battleback2Name();
@@ -461,6 +623,51 @@ void main(void) {\
         };
     }(root.Spriteset_Battle.prototype.createBattleback));
 
+    /* Update the layout method (if it exists) to change our render texture
+     * size as well.
+     */
+    root.Spriteset_Battle.prototype.layout = (function (old_impl) {
+        return function () {
+            var w, h, r;
+
+            if (old_impl) {
+                old_impl.apply(this, arguments);
+            }
+
+            w = this._back1Sprite.bitmap.width;
+            h = this._back1Sprite.bitmap.height;
+            r = this._back1Sprite.bitmap.baseTexture.resolution;
+
+            //So, uh, real talk here: there's a massive bug in RenderTexture
+            //which causes it to miscalculate it's width/height because it
+            //forwards them to the Texture constructor, resulting in the res
+            //multiplier being done twice and the projection data being totally
+            //wrong. This is a bad workaround for it. I could do better if I
+            //stuck it in Responsive with the other PIXIfixes.
+            this._SixLoves__VideoDrug_back1.rt.destroy();
+            this._SixLoves__VideoDrug_back1.rt = new root.PIXI.RenderTexture(w, h, undefined, undefined, r);
+            this._SixLoves__VideoDrug_back1.rt.width = w;
+            this._SixLoves__VideoDrug_back1.rt.height = h;
+            this._SixLoves__VideoDrug_back1.rt.projection.x = w / 2;
+            this._SixLoves__VideoDrug_back1.rt.projection.y = h / -2;
+            this._SixLoves__VideoDrug_back1.innerChildSprite.move(w / 2, h / 2, w, h);
+            this._back1Sprite.texture = this._SixLoves__VideoDrug_back1.rt;
+
+            w = this._back2Sprite.bitmap.width;
+            h = this._back2Sprite.bitmap.height;
+            r = this._back2Sprite.bitmap.baseTexture.resolution;
+
+            this._SixLoves__VideoDrug_back2.rt.destroy();
+            this._SixLoves__VideoDrug_back2.rt = new root.PIXI.RenderTexture(w, h, undefined, undefined, r);
+            this._SixLoves__VideoDrug_back2.rt.width = w;
+            this._SixLoves__VideoDrug_back2.rt.height = h;
+            this._SixLoves__VideoDrug_back2.rt.projection.x = w / 2;
+            this._SixLoves__VideoDrug_back2.rt.projection.y = h / -2;
+            this._SixLoves__VideoDrug_back2.innerChildSprite.move(w / 2, h / 2, w, h);
+            this._back2Sprite.texture = this._SixLoves__VideoDrug_back2.rt;
+        };
+    }(root.Spriteset_Battle.prototype.layout));
+
     /** Update the video drug filter's time value.
      */
     root.Spriteset_Battle.prototype.update = function (frameCount) {
@@ -476,12 +683,16 @@ void main(void) {\
             frameCount = this._SixLoves__VideoDrug_controller.update(frameCount);
         }
 
+        this._SixLoves__VideoDrug_back1.rt.render(this._SixLoves__VideoDrug_back1.innerSprite, undefined, true);
+        this._SixLoves__VideoDrug_back2.rt.render(this._SixLoves__VideoDrug_back2.innerSprite, undefined, true);
+
         return frameCount;
     };
 
     root.Spriteset_Battle.prototype.update.frame_adaptive = true;
 
-    module.SinWaveFilter = SinWaveFilter;
+    module.SineDispFilter = SineDispFilter;
+    module.SineScaleFilter = SineScaleFilter;
     module.PaletteShiftFilter = PaletteShiftFilter;
     module.DataManager = DataManager;
     module.$dataEffects = new DataManager("SixLoves_VideoDrug/", "EffectList.json");
